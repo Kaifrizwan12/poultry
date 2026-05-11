@@ -453,5 +453,7 @@ echo -e "${CYAN}FeedScheds:${NC}   PreStarter=$FS_PRESTARTER  Starter=$FS_STARTE
 echo -e "${CYAN}VaxScheds:${NC}    NDV=$VS_NDV1  IBD=$VS_IBD1  IB=$VS_IB  NDVBooster=$VS_NDV2"
 echo -e "${CYAN}Flocks:${NC}       Alpha(sold)=$FLOCK_A  Beta(active)=$FLOCK_B  Gamma(layer)=$FLOCK_C"
 echo -e "${CYAN}Invoices:${NC}     $INV1  $INV2  $INV3"
+echo -e "${CYAN}Accounts:${NC}     Cash=$ACC_CASH  Bank=$ACC_BANK  Sales=$ACC_SALES  FeedExp=$ACC_FEED_EXP  MedExp=$ACC_MED_EXP"
 echo ""
-ok "All done! Your Farm Management System is loaded with full dummy data."
+ok "All done! Poultry + Settings data loaded."
+echo -e "${YELLOW}→ To seed ledger entries run: ${BOLD}bash seed_ledger_only.sh${NC}"

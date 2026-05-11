@@ -1,4 +1,5 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/settings_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/models/lookup_option.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/vendors_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/products_controller.dart';
@@ -120,44 +121,48 @@ class _Toolbar extends StatelessWidget {
     });
   }
 
-  void _openAdd(BuildContext context) {
+  void _openAdd(BuildContext context, [Map<String, dynamic>? item]) {
+    if (context.read<SettingsController>().isBootstrapping) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Loading settings data, please wait a moment…'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+    // Read all dropdown data BEFORE showDialog — dialog context may not have
+    // SettingsScope providers in its ancestor tree.
+    final vendorOptions = context.read<VendorsController>().items
+        .map((v) => LookupOption(value: v.id, label: v.text('name')))
+        .toList();
+    final feedScheduleOptions = context.read<FeedScheduleController>().items
+        .map((f) => LookupOption(value: f.id, label: f.name))
+        .toList();
+    final vaccineScheduleOptions = context.read<VaccineScheduleController>().items
+        .map((v) => LookupOption(value: v.id, label: v.name))
+        .toList();
+    final flockCtrl = context.read<FlockController>();
+    final maxWidth  = MediaQuery.of(context).size.width < 600
+        ? MediaQuery.of(context).size.width - 24
+        : 560.0;
+
     showDialog<void>(
       context: context,
-      builder: (ctx) {
-        final vendorOptions = context
-            .read<VendorsController>()
-            .items
-            .map((v) => LookupOption(value: v.id, label: v.text('name')))
-            .toList();
-        final feedScheduleOptions = context
-            .read<FeedScheduleController>()
-            .items
-            .map((f) => LookupOption(value: f.id, label: f.name))
-            .toList();
-        final vaccineScheduleOptions = context
-            .read<VaccineScheduleController>()
-            .items
-            .map((v) => LookupOption(value: v.id, label: v.name))
-            .toList();
-        return Dialog(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width < 600
-                    ? MediaQuery.of(context).size.width - 24
-                    : 560),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: FlockFormDialog(
-                controller: context.read<FlockController>(),
-                vendorOptions: vendorOptions,
-                feedScheduleOptions: feedScheduleOptions,
-                vaccineScheduleOptions: vaccineScheduleOptions,
-                onSaved: () {},
-              ),
+      builder: (_) => Dialog(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: FlockFormDialog(
+              controller:             flockCtrl,
+              vendorOptions:          vendorOptions,
+              feedScheduleOptions:    feedScheduleOptions,
+              vaccineScheduleOptions: vaccineScheduleOptions,
+              item:                   item,
+              onSaved: () {},
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

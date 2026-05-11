@@ -29,7 +29,7 @@ class PoultryScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _PoultryChipBar(nav: nav),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
               Expanded(child: _PoultryContentArea(nav: nav)),
             ],
           ),
@@ -69,20 +69,18 @@ class _PoultryChipBar extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: _kNavItems.map((item) {
-          final selected = item.id == activeSection;
+          final selected  = item.id == activeSection;
           final iconColor = selected ? AppTheme.terra800 : AppTheme.textSecondary;
           return Padding(
-            padding: const EdgeInsets.only(right: 10),
+            padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(item.icon, size: 18, color: iconColor),
-                  const SizedBox(width: 7),
-                  Text(item.label),
-                ],
-              ),
+              label: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(item.icon, size: 15, color: iconColor),
+                const SizedBox(width: 5),
+                Text(item.label),
+              ]),
               selected: selected,
               selectedColor: AppTheme.terra100,
               backgroundColor: AppTheme.surfaceWhite,
@@ -91,11 +89,12 @@ class _PoultryChipBar extends StatelessWidget {
                 width: selected ? 1.5 : 1,
               ),
               labelStyle: TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: selected ? AppTheme.terra800 : AppTheme.textSecondary,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               onSelected: (_) => nav.selectSection(item.id),
             ),
           );

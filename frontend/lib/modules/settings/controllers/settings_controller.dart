@@ -4,6 +4,15 @@ class SettingsController extends ChangeNotifier {
   String? _selectedCategoryId;
   String _selectedOpeningChildId = 'opening_stock';
 
+  // True while SettingsScope.bootstrap() is running.
+  // Form buttons should be disabled (or show a snackbar) while this is true.
+  bool isBootstrapping = true;
+
+  void markBootstrapComplete() {
+    isBootstrapping = false;
+    notifyListeners();
+  }
+
   String? get selectedCategoryId => _selectedCategoryId;
   String get selectedOpeningChildId => _selectedOpeningChildId;
 

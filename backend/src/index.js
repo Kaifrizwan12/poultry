@@ -55,7 +55,8 @@ app.use('/api/v1/settings', authenticate, settingsRoutes);
 const poultryRoutes = require('./modules/poultry/poultry.routes');
 app.use('/api/v1/poultry', authenticate, poultryRoutes);
 
-// Future module routers mount here.
+const accountsRoutes = require('./modules/accounts/accounts.routes');
+app.use('/api/v1/accounts', authenticate, accountsRoutes);
 
 // minimal 404
 app.use((req, res) => res.status(404).json({ error: 'not found' }));

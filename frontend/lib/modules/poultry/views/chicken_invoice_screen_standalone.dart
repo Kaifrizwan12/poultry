@@ -1,4 +1,5 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/settings_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/models/lookup_option.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/customers_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
@@ -68,6 +69,13 @@ class _ChickenInvoiceStandaloneScreenState extends State<ChickenInvoiceStandalon
   }
 
   void _openEditor(BuildContext context, ChickenInvoiceController ctrl, [ChickenInvoiceModel? item]) {
+    if (context.read<SettingsController>().isBootstrapping) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Loading settings data, please wait a moment…'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
     final customerOpts = context.read<CustomersController>().items
         .map((c) => LookupOption(value: c.id, label: c.text('name'))).toList();
     final salesmanOpts = context.read<SalesmenController>().items

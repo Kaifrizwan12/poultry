@@ -36,35 +36,34 @@ class _SettingsScopeState extends State<SettingsScope> {
   bool _loaded = false;
 
   Future<void> _bootstrap(BuildContext context) async {
-    final settingsController = context.read<SettingsController>();
-    final controllers = <dynamic>[
-      context.read<UnitsController>(),
-      context.read<PackingsController>(),
-      context.read<CompaniesController>(),
-      context.read<ProductGroupsController>(),
-      context.read<ProductSubGroupsController>(),
-      context.read<ProductsController>(),
-      context.read<DiscountSchemesController>(),
-      context.read<VendorsController>(),
-      context.read<TownsController>(),
-      context.read<SectorsController>(),
-      context.read<CustomersController>(),
-      context.read<SalesmenController>(),
-      context.read<AccountsController>(),
-      context.read<OpeningStockController>(),
-      context.read<OpeningReceivablesController>(),
-      context.read<OpeningPayablesController>(),
-    ];
+    if (!mounted) return;
 
-    for (final controller in controllers) {
-      if (!mounted) {
-        return;
-      }
-      await controller.fetchAll();
-    }
+    // Fetch all 16 controllers in parallel — sequential await meant accounts
+    // (13th in the old list) only started after 12 prior round-trips finished.
+    await Future.wait([
+      context.read<UnitsController>().fetchAll(),
+      context.read<PackingsController>().fetchAll(),
+      context.read<CompaniesController>().fetchAll(),
+      context.read<ProductGroupsController>().fetchAll(),
+      context.read<ProductSubGroupsController>().fetchAll(),
+      context.read<ProductsController>().fetchAll(),
+      context.read<DiscountSchemesController>().fetchAll(),
+      context.read<VendorsController>().fetchAll(),
+      context.read<TownsController>().fetchAll(),
+      context.read<SectorsController>().fetchAll(),
+      context.read<CustomersController>().fetchAll(),
+      context.read<SalesmenController>().fetchAll(),
+      context.read<AccountsController>().fetchAll(),
+      context.read<OpeningStockController>().fetchAll(),
+      context.read<OpeningReceivablesController>().fetchAll(),
+      context.read<OpeningPayablesController>().fetchAll(),
+    ]);
 
-    if (widget.initialCategoryId != null && mounted) {
-      settingsController.selectCategory(widget.initialCategoryId!);
+    if (!mounted) return;
+    final settingsCtrl = context.read<SettingsController>();
+    settingsCtrl.markBootstrapComplete();
+    if (widget.initialCategoryId != null) {
+      settingsCtrl.selectCategory(widget.initialCategoryId!);
     }
   }
 

@@ -1,5 +1,7 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:farm_mgt_auth/core/route_manager.dart';
+import 'package:farm_mgt_auth/modules/accounts_reports/accounts_reports_scope.dart';
+import 'package:farm_mgt_auth/modules/accounts_reports/views/accounts_reports_screen.dart';
 import 'package:farm_mgt_auth/modules/auth/models/user_model.dart';
 import 'package:farm_mgt_auth/modules/home/home_screen.dart';
 import 'package:farm_mgt_auth/modules/poultry/poultry_scope.dart';
@@ -324,6 +326,8 @@ class _MainShellState extends State<MainShell> {
         );
       case 4:
         return const PoultryScope(child: PoultryScreen());
+      case 5:
+        return const AccountsReportsScope(child: AccountsReportsScreen());
       default:
         return _PlaceholderModule(title: _modules[_selectedIndex].title);
     }
@@ -489,7 +493,7 @@ class _SidebarItem extends StatelessWidget {
                   color: selected
                       ? (showExpanded
                           ? AppTheme.terra400
-                          : AppTheme.terra400.withOpacity(0.6))
+                          : AppTheme.terra400.withAlpha(153))
                       : Colors.transparent,
                   width: showExpanded ? 3 : 1.5,
                 ),

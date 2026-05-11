@@ -1,0 +1,106 @@
+import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/companies_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/customers_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/discount_schemes_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/opening_payables_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/opening_receivables_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/opening_stock_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/packings_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/product_groups_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/product_sub_groups_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/products_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/sectors_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/settings_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/towns_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/units_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/vendors_controller.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+class SettingsScope extends StatefulWidget {
+  const SettingsScope({
+    super.key,
+    required this.child,
+    this.initialCategoryId,
+  });
+
+  final Widget child;
+  final String? initialCategoryId;
+
+  @override
+  State<SettingsScope> createState() => _SettingsScopeState();
+}
+
+class _SettingsScopeState extends State<SettingsScope> {
+  bool _loaded = false;
+
+  Future<void> _bootstrap(BuildContext context) async {
+    final settingsController = context.read<SettingsController>();
+    final controllers = <dynamic>[
+      context.read<UnitsController>(),
+      context.read<PackingsController>(),
+      context.read<CompaniesController>(),
+      context.read<ProductGroupsController>(),
+      context.read<ProductSubGroupsController>(),
+      context.read<ProductsController>(),
+      context.read<DiscountSchemesController>(),
+      context.read<VendorsController>(),
+      context.read<TownsController>(),
+      context.read<SectorsController>(),
+      context.read<CustomersController>(),
+      context.read<SalesmenController>(),
+      context.read<AccountsController>(),
+      context.read<OpeningStockController>(),
+      context.read<OpeningReceivablesController>(),
+      context.read<OpeningPayablesController>(),
+    ];
+
+    for (final controller in controllers) {
+      if (!mounted) {
+        return;
+      }
+      await controller.fetchAll();
+    }
+
+    if (widget.initialCategoryId != null && mounted) {
+      settingsController.selectCategory(widget.initialCategoryId!);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SettingsController()),
+        ChangeNotifierProvider(create: (_) => UnitsController()),
+        ChangeNotifierProvider(create: (_) => PackingsController()),
+        ChangeNotifierProvider(create: (_) => CompaniesController()),
+        ChangeNotifierProvider(create: (_) => ProductGroupsController()),
+        ChangeNotifierProvider(create: (_) => ProductSubGroupsController()),
+        ChangeNotifierProvider(create: (_) => ProductsController()),
+        ChangeNotifierProvider(create: (_) => DiscountSchemesController()),
+        ChangeNotifierProvider(create: (_) => VendorsController()),
+        ChangeNotifierProvider(create: (_) => TownsController()),
+        ChangeNotifierProvider(create: (_) => SectorsController()),
+        ChangeNotifierProvider(create: (_) => CustomersController()),
+        ChangeNotifierProvider(create: (_) => SalesmenController()),
+        ChangeNotifierProvider(create: (_) => AccountsController()),
+        ChangeNotifierProvider(create: (_) => OpeningStockController()),
+        ChangeNotifierProvider(create: (_) => OpeningReceivablesController()),
+        ChangeNotifierProvider(create: (_) => OpeningPayablesController()),
+      ],
+      child: Builder(
+        builder: (context) {
+          if (!_loaded) {
+            _loaded = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _bootstrap(context);
+            });
+          }
+          return widget.child;
+        },
+      ),
+    );
+  }
+}

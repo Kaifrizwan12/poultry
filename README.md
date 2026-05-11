@@ -18,3 +18,4 @@ The original prompt used `users/{uid}/settings/{entity}/{docId}`. Firestore alte
 - Composite index on `townId` for sectors
 
 See `firestore.indexes.json` for a starting point.
+# poultry

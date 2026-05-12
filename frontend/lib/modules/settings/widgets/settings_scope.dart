@@ -38,8 +38,8 @@ class _SettingsScopeState extends State<SettingsScope> {
   Future<void> _bootstrap(BuildContext context) async {
     if (!mounted) return;
 
-    // Fetch all 16 controllers in parallel — sequential await meant accounts
-    // (13th in the old list) only started after 12 prior round-trips finished.
+    // All 16 entities in parallel – each fetchAll() falls back to cache
+    // silently when the backend is unreachable, so this never throws hard.
     await Future.wait([
       context.read<UnitsController>().fetchAll(),
       context.read<PackingsController>().fetchAll(),

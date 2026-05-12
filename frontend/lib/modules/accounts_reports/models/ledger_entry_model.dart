@@ -24,7 +24,7 @@ class LedgerEntry {
   final String entryNo;
   final String entryDate;
   final String accountId;
-  final String entryType;    // 'debit' | 'credit'
+  final String entryType;     // 'debit' | 'credit'
   final double amount;
   final String description;
   final String referenceType;
@@ -38,7 +38,7 @@ class LedgerEntry {
   final String createdAt;
   final String updatedAt;
 
-  // Only populated in the by-account view response
+  // Only populated in the by-account view response.
   final double? runningBalance;
 
   bool get isDebit  => entryType == 'debit';
@@ -46,54 +46,77 @@ class LedgerEntry {
 
   factory LedgerEntry.fromJson(Map<String, dynamic> json) {
     final rawTags = json['tags'];
-    final tags = rawTags is List
-        ? rawTags.map((t) => '$t').toList()
-        : <String>[];
     return LedgerEntry(
-      id:            '${json['id'] ?? ''}',
-      entryNo:       '${json['entryNo'] ?? ''}',
-      entryDate:     '${json['entryDate'] ?? ''}',
-      accountId:     '${json['accountId'] ?? ''}',
-      entryType:     '${json['entryType'] ?? 'debit'}',
-      amount:        _toDouble(json['amount']),
-      description:   '${json['description'] ?? ''}',
-      referenceType: '${json['referenceType'] ?? 'manual'}',
-      referenceId:   json['referenceId'] as String?,
-      referenceNo:   json['referenceNo'] as String?,
-      tags:          tags,
-      isReconciled:  json['isReconciled'] == true,
-      reconciledAt:  json['reconciledAt'] as String?,
-      notes:         json['notes'] as String?,
-      uid:           '${json['uid'] ?? ''}',
-      createdAt:     '${json['createdAt'] ?? ''}',
-      updatedAt:     '${json['updatedAt'] ?? ''}',
-      runningBalance: json['runningBalance'] != null ? _toDouble(json['runningBalance']) : null,
+      id:             '${json['id'] ?? ''}',
+      entryNo:        '${json['entryNo'] ?? ''}',
+      entryDate:      '${json['entryDate'] ?? ''}',
+      accountId:      '${json['accountId'] ?? ''}',
+      entryType:      '${json['entryType'] ?? 'debit'}',
+      amount:         _toDouble(json['amount']),
+      description:    '${json['description'] ?? ''}',
+      referenceType:  '${json['referenceType'] ?? 'manual'}',
+      referenceId:    json['referenceId'] as String?,
+      referenceNo:    json['referenceNo'] as String?,
+      tags:           rawTags is List ? rawTags.map((t) => '$t').toList() : [],
+      isReconciled:   json['isReconciled'] == true,
+      reconciledAt:   json['reconciledAt'] as String?,
+      notes:          json['notes'] as String?,
+      uid:            '${json['uid'] ?? ''}',
+      createdAt:      '${json['createdAt'] ?? ''}',
+      updatedAt:      '${json['updatedAt'] ?? ''}',
+      runningBalance: json['runningBalance'] != null
+          ? _toDouble(json['runningBalance'])
+          : null,
     );
   }
 
+  /// Subset sent to the API on create / update (no server-managed fields).
   Map<String, dynamic> toJson() => {
-    'entryNo':       entryNo,
-    'entryDate':     entryDate,
-    'accountId':     accountId,
-    'entryType':     entryType,
-    'amount':        amount,
-    'description':   description,
-    'referenceType': referenceType,
-    'referenceId':   referenceId,
-    'referenceNo':   referenceNo,
-    'tags':          tags,
-    'isReconciled':  isReconciled,
-    'notes':         notes,
-  };
+        'entryNo':       entryNo,
+        'entryDate':     entryDate,
+        'accountId':     accountId,
+        'entryType':     entryType,
+        'amount':        amount,
+        'description':   description,
+        'referenceType': referenceType,
+        'referenceId':   referenceId,
+        'referenceNo':   referenceNo,
+        'tags':          tags,
+        'isReconciled':  isReconciled,
+        'notes':         notes,
+      };
+
+  /// Full serialisation including server-managed fields – used for local cache.
+  Map<String, dynamic> toFullJson() => {
+        'id':            id,
+        'entryNo':       entryNo,
+        'entryDate':     entryDate,
+        'accountId':     accountId,
+        'entryType':     entryType,
+        'amount':        amount,
+        'description':   description,
+        'referenceType': referenceType,
+        'referenceId':   referenceId,
+        'referenceNo':   referenceNo,
+        'tags':          tags,
+        'isReconciled':  isReconciled,
+        'reconciledAt':  reconciledAt,
+        'notes':         notes,
+        'uid':           uid,
+        'createdAt':     createdAt,
+        'updatedAt':     updatedAt,
+        'runningBalance': runningBalance,
+      };
 
   LedgerEntry copyWith({double? runningBalance}) => LedgerEntry(
-    id: id, entryNo: entryNo, entryDate: entryDate, accountId: accountId,
-    entryType: entryType, amount: amount, description: description,
-    referenceType: referenceType, referenceId: referenceId, referenceNo: referenceNo,
-    tags: tags, isReconciled: isReconciled, reconciledAt: reconciledAt, notes: notes,
-    uid: uid, createdAt: createdAt, updatedAt: updatedAt,
-    runningBalance: runningBalance ?? this.runningBalance,
-  );
+        id: id, entryNo: entryNo, entryDate: entryDate,
+        accountId: accountId, entryType: entryType, amount: amount,
+        description: description, referenceType: referenceType,
+        referenceId: referenceId, referenceNo: referenceNo,
+        tags: tags, isReconciled: isReconciled, reconciledAt: reconciledAt,
+        notes: notes, uid: uid, createdAt: createdAt, updatedAt: updatedAt,
+        runningBalance: runningBalance ?? this.runningBalance,
+      );
 
   static double _toDouble(dynamic v) {
     if (v is num) return v.toDouble();

@@ -26,7 +26,8 @@ class _AccountsReportsScopeState extends State<AccountsReportsScope> {
         builder: (context) {
           if (!_loaded) {
             _loaded = true;
-            // Trigger initial load after the first frame so providers are ready
+            // loadAll() falls back to cache when offline so this never
+            // hard-fails on the initial bootstrap.
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) context.read<LedgerController>().loadAll();
             });

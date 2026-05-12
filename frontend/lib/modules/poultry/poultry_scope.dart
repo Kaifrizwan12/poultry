@@ -21,14 +21,14 @@ class PoultryScope extends StatefulWidget {
 class _PoultryScopeState extends State<PoultryScope> {
   bool _loaded = false;
 
+  /// Pre-fetch the three primary lists.
+  /// Each fetchAll() falls back to cache when offline so this never throws hard.
   Future<void> _bootstrap(BuildContext context) async {
-    // Pre-fetch the primary lists; child-entity lists are fetched lazily
-    final futures = <Future<void>>[
+    await Future.wait([
       context.read<FeedScheduleController>().fetchAll(),
       context.read<VaccineScheduleController>().fetchAll(),
       context.read<FlockController>().fetchAll(),
-    ];
-    await Future.wait(futures);
+    ]);
   }
 
   @override

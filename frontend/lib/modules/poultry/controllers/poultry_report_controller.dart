@@ -10,22 +10,32 @@ class PoultryReportController extends ChangeNotifier {
 
   FlockStatusReportModel? flockStatus;
   DemandAnalysisReportModel? demandAnalysis;
-  bool isLoadingStatus = false;
-  bool isLoadingDemand = false;
+  bool isLoadingStatus  = false;
+  bool isLoadingDemand  = false;
   String? errorStatus;
   String? errorDemand;
+
+  // Tracks whether the displayed report came from cache (true) or live API.
+  bool isFlockStatusOffline  = false;
+  bool isDemandOffline       = false;
+
   String? _currentStatusFlockId;
 
   Future<void> loadFlockStatus(String flockId, {bool force = false}) async {
     if (!force && _currentStatusFlockId == flockId && flockStatus != null) return;
     _currentStatusFlockId = flockId;
     isLoadingStatus = true;
-    errorStatus = null;
+    errorStatus     = null;
     notifyListeners();
     try {
-      flockStatus = await _service.getFlockStatus(flockId);
+      flockStatus            = await _service.getFlockStatus(flockId);
+      isFlockStatusOffline   = false;
     } catch (e) {
       errorStatus = e.toString();
+      // If the error says "no cached report" we distinguish it in the UI via
+      // isFlockStatusOffline; the error message string already contains the
+      // user-friendly text from PoultryReportService.
+      isFlockStatusOffline = flockStatus == null;
     }
     isLoadingStatus = false;
     notifyListeners();
@@ -33,25 +43,29 @@ class PoultryReportController extends ChangeNotifier {
 
   Future<void> loadDemandAnalysis(List<String> flockIds, int daysAhead) async {
     isLoadingDemand = true;
-    errorDemand = null;
+    errorDemand     = null;
     notifyListeners();
     try {
-      demandAnalysis = await _service.getDemandAnalysis(flockIds, daysAhead);
+      demandAnalysis   = await _service.getDemandAnalysis(flockIds, daysAhead);
+      isDemandOffline  = false;
     } catch (e) {
-      errorDemand = e.toString();
+      errorDemand     = e.toString();
+      isDemandOffline = demandAnalysis == null;
     }
     isLoadingDemand = false;
     notifyListeners();
   }
 
   void clearStatus() {
-    flockStatus = null;
+    flockStatus           = null;
     _currentStatusFlockId = null;
+    isFlockStatusOffline  = false;
     notifyListeners();
   }
 
   void clearDemand() {
-    demandAnalysis = null;
+    demandAnalysis  = null;
+    isDemandOffline = false;
     notifyListeners();
   }
 }

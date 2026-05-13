@@ -358,19 +358,21 @@ class SettingsDefinitions {
       icon: Icons.shopping_bag_outlined,
       addLabel: 'Add Product',
       listTitleKey: 'name',
-      listSubtitleKeys: const [
-        'groupId',
-        'subGroupId',
-        'code',
-        'salePrice',
-        'purchasePrice',
-      ],
+      listSubtitleKeys: const ['code', 'companyId', 'sale1Price', 'salesTaxPercent'],
       fields: [
         const SettingsFieldConfig(
             key: 'name',
             label: 'Name',
             type: SettingsFieldType.text,
             required: true),
+        SettingsFieldConfig(
+          key: 'companyId',
+          label: 'Company',
+          type: SettingsFieldType.dropdown,
+          optionsBuilder: (context, values, item) => _companyOptions(context),
+        ),
+        const SettingsFieldConfig(
+            key: 'longName', label: 'Long Name', type: SettingsFieldType.text),
         const SettingsFieldConfig(
             key: 'code', label: 'Code', type: SettingsFieldType.text),
         SettingsFieldConfig(
@@ -393,24 +395,80 @@ class SettingsDefinitions {
           type: SettingsFieldType.dropdown,
           optionsBuilder: (context, values, item) => _unitsOptions(context),
         ),
+        const SettingsFieldConfig(
+            key: 'size', label: 'Size', type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'displayOrder',
+            label: 'Display Order',
+            type: SettingsFieldType.number),
         SettingsFieldConfig(
-          key: 'packingId',
-          label: 'Packing',
+          key: 'purPackingId',
+          label: 'Purchase Packing',
           type: SettingsFieldType.dropdown,
           optionsBuilder: (context, values, item) => _packingOptions(context),
         ),
-        const SettingsFieldConfig(
-            key: 'salePrice',
-            label: 'Sale Price',
-            type: SettingsFieldType.number),
+        SettingsFieldConfig(
+          key: 'salePackingId',
+          label: 'Sale Packing',
+          type: SettingsFieldType.dropdown,
+          optionsBuilder: (context, values, item) => _packingOptions(context),
+        ),
         const SettingsFieldConfig(
             key: 'purchasePrice',
             label: 'Purchase Price',
             type: SettingsFieldType.number),
         const SettingsFieldConfig(
-            key: 'taxPercent',
-            label: 'Tax Percent',
+            key: 'purchaseDiscPercent',
+            label: 'Purchase Disc%',
             type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'sale1Price',
+            label: 'Sale Price 1',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'sale1DiscPercent',
+            label: 'Sale 1 Disc%',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'sale2Price',
+            label: 'Sale Price 2',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'sale2DiscPercent',
+            label: 'Sale 2 Disc%',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'sale3Price',
+            label: 'Sale Price 3',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'sale3DiscPercent',
+            label: 'Sale 3 Disc%',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'salesTaxPercent',
+            label: 'Sales Tax (%)',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'sedValue',
+            label: 'SED Value',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'retailPrice',
+            label: 'Retail Price',
+            type: SettingsFieldType.number),
+        const SettingsFieldConfig(
+            key: 'isPoultryItem',
+            label: 'Poultry Item',
+            type: SettingsFieldType.boolToggle),
+        const SettingsFieldConfig(
+            key: 'inactiveInAdditions',
+            label: 'Inactive in Additions',
+            type: SettingsFieldType.boolToggle),
+        const SettingsFieldConfig(
+            key: 'inactiveOnBonusForSales',
+            label: 'Inactive on Bonus for Sales',
+            type: SettingsFieldType.boolToggle),
         const SettingsFieldConfig(
             key: 'isActive',
             label: 'Active',

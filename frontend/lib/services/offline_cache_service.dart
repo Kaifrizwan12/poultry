@@ -41,6 +41,19 @@ class OfflineCacheService {
   static String poultryReportKey(String reportName, String paramHash) =>
       'cache:${_fid()}:poultry:report:$reportName:$paramHash';
 
+  static String invoicingListKey(String entity, {String? queryString}) {
+    final suffix = (queryString != null && queryString.isNotEmpty)
+        ? ':${queryString.hashCode.abs()}'
+        : '';
+    return 'cache:${_fid()}:invoicing:$entity:list$suffix';
+  }
+
+  static String invoicingItemKey(String entity, String id) =>
+      'cache:${_fid()}:invoicing:$entity:item:$id';
+
+  static String invoicingTsKey(String entity) =>
+      'cache:${_fid()}:invoicing:$entity:ts';
+
   static String ledgerListKey() => 'cache:${_fid()}:accounts:ledger:list';
 
   static String ledgerItemKey(String id) =>

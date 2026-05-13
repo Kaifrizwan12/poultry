@@ -58,6 +58,9 @@ app.use('/api/v1/poultry', authenticate, poultryRoutes);
 const accountsRoutes = require('./modules/accounts/accounts.routes');
 app.use('/api/v1/accounts', authenticate, accountsRoutes);
 
+const invoicingRoutes = require('./modules/invoicing/invoicing.routes');
+app.use('/api/v1/invoicing', authenticate, invoicingRoutes);
+
 // minimal 404
 app.use((req, res) => res.status(404).json({ error: 'not found' }));
 

@@ -228,38 +228,45 @@ const settingsConfigs = {
     entity: 'products',
     sanitize: async ({ uid, body }) => {
       const errors = [];
-      const groupId = asRequiredString(body.groupId, 'groupId', errors);
+      const groupId    = asRequiredString(body.groupId, 'groupId', errors);
       const subGroupId = asNullableString(body.subGroupId);
-      const unitId = asNullableString(body.unitId);
-      const packingId = asNullableString(body.packingId);
+      const unitId     = asNullableString(body.unitId);
+      const companyId  = asNullableString(body.companyId);
 
       await requireReference(uid, 'productGroups', groupId, 'groupId', errors);
       await requireReference(uid, 'productSubGroups', subGroupId, 'subGroupId', errors);
       await requireReference(uid, 'units', unitId, 'unitId', errors);
-      await requireReference(uid, 'packings', packingId, 'packingId', errors);
+      await requireReference(uid, 'companies', companyId, 'companyId', errors);
 
       return {
         data: {
-          name: asRequiredString(body.name, 'name', errors),
-          code: asNullableString(body.code),
+          name:          asRequiredString(body.name, 'name', errors),
+          code:          asNullableString(body.code),
           groupId,
           subGroupId,
           unitId,
-          packingId,
-          salePrice: asNumber(body.salePrice, 'salePrice', errors, {
-            defaultValue: 0,
-            min: 0,
-          }),
-          purchasePrice: asNumber(body.purchasePrice, 'purchasePrice', errors, {
-            defaultValue: 0,
-            min: 0,
-          }),
-          taxPercent: asNumber(body.taxPercent, 'taxPercent', errors, {
-            defaultValue: 0,
-            min: 0,
-          }),
-          isActive: asBoolean(body.isActive, true),
-          description: asNullableString(body.description),
+          companyId,
+          longName:      asNullableString(body.longName),
+          size:          asNumber(body.size, 'size', errors, { min: 0, defaultValue: 0 }),
+          displayOrder:  asNumber(body.displayOrder, 'displayOrder', errors, { min: 0, defaultValue: 0 }),
+          purPackingId:  asNullableString(body.purPackingId),
+          salePackingId: asNullableString(body.salePackingId),
+          purchasePrice:       asNumber(body.purchasePrice, 'purchasePrice', errors, { min: 0, defaultValue: 0 }),
+          purchaseDiscPercent: asNumber(body.purchaseDiscPercent, 'purchaseDiscPercent', errors, { min: 0, max: 100, defaultValue: 0 }),
+          sale1Price:          asNumber(body.sale1Price, 'sale1Price', errors, { min: 0, defaultValue: 0 }),
+          sale1DiscPercent:    asNumber(body.sale1DiscPercent, 'sale1DiscPercent', errors, { min: 0, max: 100, defaultValue: 0 }),
+          sale2Price:          asNumber(body.sale2Price, 'sale2Price', errors, { min: 0, defaultValue: 0 }),
+          sale2DiscPercent:    asNumber(body.sale2DiscPercent, 'sale2DiscPercent', errors, { min: 0, max: 100, defaultValue: 0 }),
+          sale3Price:          asNumber(body.sale3Price, 'sale3Price', errors, { min: 0, defaultValue: 0 }),
+          sale3DiscPercent:    asNumber(body.sale3DiscPercent, 'sale3DiscPercent', errors, { min: 0, max: 100, defaultValue: 0 }),
+          salesTaxPercent:     asNumber(body.salesTaxPercent, 'salesTaxPercent', errors, { min: 0, defaultValue: 0 }),
+          sedValue:      asNumber(body.sedValue, 'sedValue', errors, { min: 0, defaultValue: 0 }),
+          retailPrice:   asNumber(body.retailPrice, 'retailPrice', errors, { min: 0, defaultValue: 0 }),
+          isPoultryItem:          asBoolean(body.isPoultryItem, false),
+          inactiveInAdditions:    asBoolean(body.inactiveInAdditions, false),
+          inactiveOnBonusForSales: asBoolean(body.inactiveOnBonusForSales, false),
+          isActive:      asBoolean(body.isActive, true),
+          description:   asNullableString(body.description),
         },
         errors,
       };

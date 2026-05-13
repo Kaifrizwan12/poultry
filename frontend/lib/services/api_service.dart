@@ -192,6 +192,38 @@ class ApiService {
     }
   }
 
+  // ── PATCH ───────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> patch(
+    String path,
+    Map<String, dynamic> body, {
+    bool auth = false,
+  }) async {
+    final url = '$base$path';
+    _log('INFO', 'PATCH $url');
+    try {
+      final res = await http
+          .patch(Uri.parse(url),
+              body: jsonEncode(body), headers: _headers(auth: auth))
+          .timeout(const Duration(seconds: 30));
+
+      if (res.statusCode == 401 && auth && _sessionRefreshHandler != null) {
+        final renewed = await _sessionRefreshHandler!();
+        if (renewed) {
+          final retry = await http
+              .patch(Uri.parse(url),
+                  body: jsonEncode(body), headers: _headers(auth: true))
+              .timeout(const Duration(seconds: 30));
+          return _decode(retry);
+        }
+      }
+      NetworkStateService.markOnline();
+      return _decode(res);
+    } catch (e) {
+      _rethrowAsNetwork(e);
+    }
+  }
+
   // ── DELETE ──────────────────────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> delete(

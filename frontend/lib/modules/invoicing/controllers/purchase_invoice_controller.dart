@@ -71,7 +71,7 @@ class PurchaseInvoiceController extends ChangeNotifier {
   }
 
   PurchaseInvoiceModel? findById(String id) {
-    try { return _items.firstWhere((i) => i.id == id); } catch (_) { return null; }
+    try { return _items.firstWhere((i) => i.id == id || i.text('purchaseId') == id); } catch (_) { return null; }
   }
 
   void _onSyncComplete() {

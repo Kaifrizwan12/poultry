@@ -68,7 +68,7 @@ class SalesReturnController extends ChangeNotifier {
   }
 
   SalesReturnModel? findById(String id) {
-    try { return _items.firstWhere((i) => i.id == id); } catch (_) { return null; }
+    try { return _items.firstWhere((i) => i.id == id || i.text('returnId') == id); } catch (_) { return null; }
   }
 
   void _onSyncComplete() {

@@ -8,4 +8,8 @@ class ProductSubGroup extends BaseSettingsModel {
     final data = Map<String, dynamic>.from(map)..remove('id');
     return ProductSubGroup(id: '${map['id'] ?? ''}', data: data);
   }
+
+  String get name        => text('name');
+  String get groupId     => text('groupId');
+  String get description => text('description');
 }

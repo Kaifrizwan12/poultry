@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asBoolean, asEnum,
-  requireSettingsRef, requireInvoicingRef, nextSequentialId,
+  requireSettingsRef, requireInvoicingRef, nextBusinessId, invoicingCollection,
 } = require('../invoicing.validators');
 
 module.exports = {
@@ -13,14 +13,18 @@ module.exports = {
 
     const issueId = id
       ? asNullableString(body.issueId)
-      : await nextSequentialId(uid, 'stockIssues', issueType === 'issue' ? 'STI' : 'STR');
+      : await nextBusinessId(uid, 'stockIssues', issueType === 'issue' ? 'STI' : 'STR');
 
     const salesmanId = asRequiredString(body.salesmanId, 'salesmanId', errors);
     await requireSettingsRef(uid, 'salesmen', salesmanId, 'salesmanId', errors);
 
     const originalIssueId = asNullableString(body.originalIssueId);
+    let originalItems = [];
     if (issueType === 'return' && originalIssueId) {
       await requireInvoicingRef(uid, 'stockIssues', originalIssueId, 'originalIssueId', errors);
+      // Load original issue quantities for validation
+      const origSnap = await invoicingCollection(uid, 'stockIssues').doc(originalIssueId).get();
+      if (origSnap.exists) originalItems = origSnap.data().items || [];
     }
 
     const rawItems = Array.isArray(body.items) ? body.items : [];
@@ -38,6 +42,19 @@ module.exports = {
       const pack     = asNumber(r.pack, `items[${i}].pack`, errors, { min: 0, defaultValue: 1 });
       const cost     = asNumber(r.cost, `items[${i}].cost`, errors, { min: 0, defaultValue: 0 });
       const value    = (qtyPacks * pack + qtyLoose) * cost;
+
+      // Validate return qty ≤ original issue qty
+      if (issueType === 'return' && originalItems.length) {
+        const origItem = originalItems.find(it => it.productId === productId);
+        if (origItem) {
+          if (qtyPacks > (origItem.qtyPacks || 0) + 0.001) {
+            errors.push(`items[${i}]: return ${qtyPacks} packs exceeds original issue ${origItem.qtyPacks} packs for product ${productId}`);
+          }
+          if (qtyLoose > (origItem.qtyLoose || 0) + 0.001) {
+            errors.push(`items[${i}]: return ${qtyLoose} loose exceeds original issue ${origItem.qtyLoose} loose for product ${productId}`);
+          }
+        }
+      }
 
       items.push({
         productId,

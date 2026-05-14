@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asEnum, asDateString,
-  requireSettingsRef, nextSequentialId,
+  requireSettingsRef, nextBusinessId,
 } = require('../invoicing.validators');
 
 function calcLineValues(item) {
@@ -27,7 +27,7 @@ module.exports = {
 
     const orderId = id
       ? asNullableString(body.orderId)
-      : await nextSequentialId(uid, 'purchaseOrders', 'PO');
+      : await nextBusinessId(uid, 'purchaseOrders', 'PO');
 
     const vendorId = asRequiredString(body.vendorId, 'vendorId', errors);
     await requireSettingsRef(uid, 'vendors', vendorId, 'vendorId', errors);

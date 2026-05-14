@@ -8,4 +8,8 @@ class Town extends BaseSettingsModel {
     final data = Map<String, dynamic>.from(map)..remove('id');
     return Town(id: '${map['id'] ?? ''}', data: data);
   }
+
+  String get name     => text('name');
+  String get district => text('district');
+  String get province => text('province');
 }

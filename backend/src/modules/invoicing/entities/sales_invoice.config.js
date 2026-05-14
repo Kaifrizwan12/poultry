@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asBoolean, asEnum, asDateString,
-  requireSettingsRef, nextSequentialId, invoicingCollection,
+  requireSettingsRef, nextBusinessId, invoicingCollection,
 } = require('../invoicing.validators');
 
 function calcLineValues(item) {
@@ -27,13 +27,18 @@ module.exports = {
 
     const saleId = id
       ? asNullableString(body.saleId)
-      : await nextSequentialId(uid, 'salesInvoices', 'SI');
+      : await nextBusinessId(uid, 'salesInvoices', 'SI');
 
     const customerId = asRequiredString(body.customerId, 'customerId', errors);
     await requireSettingsRef(uid, 'customers', customerId, 'customerId', errors);
 
     const salesmanId = asNullableString(body.salesmanId);
     if (salesmanId) await requireSettingsRef(uid, 'salesmen', salesmanId, 'salesmanId', errors);
+
+    const townId   = asNullableString(body.townId);
+    const sectorId = asNullableString(body.sectorId);
+    if (townId)   await requireSettingsRef(uid, 'towns',   townId,   'townId',   errors);
+    if (sectorId) await requireSettingsRef(uid, 'sectors', sectorId, 'sectorId', errors);
 
     // Sanitize line items
     const rawItems = Array.isArray(body.items) ? body.items : [];
@@ -92,8 +97,8 @@ module.exports = {
         entryDate:    asRequiredString(body.entryDate, 'entryDate', errors),
         customerId,
         customerName: asNullableString(body.customerName),
-        townId:       asNullableString(body.townId),
-        sectorId:     asNullableString(body.sectorId),
+        townId,
+        sectorId,
         salesmanId,
         salesmanName: asNullableString(body.salesmanName),
         prevDebit,

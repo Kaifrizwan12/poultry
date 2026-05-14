@@ -8,4 +8,9 @@ class OpeningStock extends BaseSettingsModel {
     final data = Map<String, dynamic>.from(map)..remove('id');
     return OpeningStock(id: '${map['id'] ?? ''}', data: data);
   }
+
+  String get productId => text('productId');
+  double get quantity  => number('quantity');
+  double get rate      => number('rate');
+  String get date      => text('date');
 }

@@ -68,7 +68,7 @@ class ExpiryClaimController extends ChangeNotifier {
   }
 
   ExpiryClaimModel? findById(String id) {
-    try { return _items.firstWhere((i) => i.id == id); } catch (_) { return null; }
+    try { return _items.firstWhere((i) => i.id == id || i.text('claimId') == id); } catch (_) { return null; }
   }
 
   void _onSyncComplete() {

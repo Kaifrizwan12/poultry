@@ -1,5 +1,24 @@
 import 'invoicing_definitions.dart';
 
+// ─── Screen group filters ─────────────────────────────────────────────────────
+
+const List<String> kInvoicingScreenGroupTitles    = ['Invoicing', 'Stock'];
+const List<String> kTransactionsScreenGroupTitles = ['Recovery', 'Vouchers', 'Banking', 'Promises'];
+
+List<InvoicingNavGroup> invoicingScreenGroups() => kInvoicingNavGroups
+    .where((g) => kInvoicingScreenGroupTitles.contains(g.title))
+    .toList();
+
+List<InvoicingNavGroup> transactionsScreenGroups() => kInvoicingNavGroups
+    .where((g) => kTransactionsScreenGroupTitles.contains(g.title))
+    .toList();
+
+bool isInvoicingSection(InvoicingSection s) =>
+    invoicingScreenGroups().any((g) => g.items.any((i) => i.section == s));
+
+bool isTransactionsSection(InvoicingSection s) =>
+    transactionsScreenGroups().any((g) => g.items.any((i) => i.section == s));
+
 // ─── Nav item model ────────────────────────────────────────────────────────────
 
 class InvoicingNavItem {

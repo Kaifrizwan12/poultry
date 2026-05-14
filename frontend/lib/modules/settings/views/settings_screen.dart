@@ -1,4 +1,5 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'posting_config_screen.dart';
 import 'package:farm_mgt_auth/modules/settings/config/settings_definitions.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/base_settings_controller.dart';
@@ -60,7 +61,10 @@ class SettingsScreen extends StatelessWidget {
             settingsController.selectCategory(selectedCategoryId);
           });
         }
-        final category = SettingsDefinitions.categoryById(selectedCategoryId);
+        final isPostingConfig = selectedCategoryId == 'posting_config';
+        final category = isPostingConfig
+            ? categories.first
+            : SettingsDefinitions.categoryById(selectedCategoryId);
 
         return Padding(
           padding: AppTheme.pagePadding(context),
@@ -72,38 +76,56 @@ class SettingsScreen extends StatelessWidget {
                 decoration: AppTheme.cardDecor,
                 child: ListView.separated(
                   shrinkWrap: true,
-                  itemCount: categories.length,
+                  itemCount: categories.length + 1,
                   separatorBuilder: (_, __) => Divider(
                     height: 1,
                     color: AppTheme.listTileDivider,
                   ),
                   itemBuilder: (context, index) {
-                    final item = categories[index];
-                    final selected = item.id == category.id;
+                    if (index < categories.length) {
+                      final item = categories[index];
+                      final selected =
+                          !isPostingConfig && item.id == category.id;
+                      return ListTile(
+                        contentPadding: AppTheme.tilePadding,
+                        minLeadingWidth: 24,
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.terra50,
+                          child: Icon(item.icon, color: AppTheme.terra600),
+                        ),
+                        title: Text(item.title),
+                        trailing: const Icon(
+                          Icons.chevron_right,
+                          color: AppTheme.textSecondary,
+                        ),
+                        selected: selected,
+                        onTap: () => settingsController.selectCategory(item.id),
+                      );
+                    }
+
                     return ListTile(
                       contentPadding: AppTheme.tilePadding,
                       minLeadingWidth: 24,
-                      leading: CircleAvatar(
+                      leading: const CircleAvatar(
                         backgroundColor: AppTheme.terra50,
-                        child: Icon(item.icon, color: AppTheme.terra600),
+                        child: Icon(Icons.account_tree_outlined, color: AppTheme.terra600),
                       ),
-                      title: Text(item.title),
-                      trailing: const Icon(
-                        Icons.chevron_right,
-                        color: AppTheme.textSecondary,
-                      ),
-                      selected: selected,
-                      onTap: () => settingsController.selectCategory(item.id),
+                      title: const Text('Posting Config'),
+                      trailing: const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+                      selected: settingsController.selectedCategoryId == 'posting_config',
+                      onTap: () => settingsController.selectCategory('posting_config'),
                     );
                   },
                 ),
               ),
               const SizedBox(width: 20),
               Expanded(
-                child: _SettingsDetailScaffold(
-                  category: category,
-                  showBreadcrumb: width > 1024,
-                ),
+                child: settingsController.selectedCategoryId == 'posting_config'
+                    ? const PostingConfigScreen()
+                    : _SettingsDetailScaffold(
+                        category: category,
+                        showBreadcrumb: width > 1024,
+                      ),
               ),
             ],
           ),

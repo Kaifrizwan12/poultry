@@ -8,4 +8,14 @@ class Vendor extends BaseSettingsModel {
     final data = Map<String, dynamic>.from(map)..remove('id');
     return Vendor(id: '${map['id'] ?? ''}', data: data);
   }
+
+  String get name           => text('name');
+  String get companyId      => text('companyId');
+  String get phone          => text('phone');
+  String get email          => text('email');
+  String get address        => text('address');
+  String get town           => text('town');
+  double get openingBalance => number('openingBalance');
+  String get balanceType    => text('balanceType');
+  String get notes          => text('notes');
 }

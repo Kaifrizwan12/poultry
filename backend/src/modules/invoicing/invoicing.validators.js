@@ -113,23 +113,26 @@ async function requireInvoicingRef(uid, entity, id, field, errors) {
   if (!exists) errors.push(`${field} references a non-existent ${entity} record`);
 }
 
-// ─── Sequential ID generator ──────────────────────────────────────────────────
+// ─── Atomic sequential business-ID generator ──────────────────────────────────
+// Uses a per-entity counter document inside a Firestore transaction so that
+// concurrent requests can never generate duplicate human-readable IDs.
+// Counter lives at:  users/{uid}/invoicing/counter_{entity}  { lastNo: N }
 
-async function nextSequentialId(uid, entity, prefix) {
-  // Reads recent items, finds max numeric suffix, returns prefix + (max+1)
-  // e.g. nextSequentialId(uid, 'salesInvoices', 'SI') → 'SI-0001'
-  const snap = await invoicingCollection(uid, entity)
-    .orderBy('createdAt', 'desc')
-    .limit(100)
-    .get();
-  let max = 0;
-  snap.docs.forEach(doc => {
-    const id = doc.data()[`${entity.replace(/s$/, '')}Id`] || '';
-    const n = parseInt(id.replace(/\D/g, ''), 10);
-    if (!isNaN(n) && n > max) max = n;
+async function nextBusinessId(uid, entity, prefix) {
+  const db = requireDb();
+  const counterRef = invoicingEntityDoc(uid, `counter_${entity}`);
+  let no;
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(counterRef);
+    const last = snap.exists ? (snap.data().lastNo || 0) : 0;
+    no = last + 1;
+    tx.set(counterRef, { lastNo: no, updatedAt: nowIso() }, { merge: true });
   });
-  return `${prefix}-${String(max + 1).padStart(4, '0')}`;
+  return `${prefix}-${String(no).padStart(4, '0')}`;
 }
+
+// Keep old name as alias so a manual call won't break during transition
+const nextSequentialId = nextBusinessId;
 
 function nowIso() {
   return new Date().toISOString();
@@ -157,7 +160,8 @@ module.exports = {
   cleanStringList,
   requireSettingsRef,
   requireInvoicingRef,
-  nextSequentialId,
+  nextBusinessId,
+  nextSequentialId, // alias kept for backward compat
   stampNew,
   stampUpdated,
   nowIso,

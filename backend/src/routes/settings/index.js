@@ -13,7 +13,8 @@ const sectorsRoutes = require('./sectors');
 const customersRoutes = require('./customers');
 const salesmenRoutes = require('./salesmen');
 const accountsRoutes = require('./accounts');
-const openingsRoutes = require('./openings');
+const openingsRoutes    = require('./openings');
+const postingConfigRoutes = require('./postingConfig');
 
 const router = express.Router();
 
@@ -31,5 +32,6 @@ router.use('/customers', customersRoutes);
 router.use('/salesmen', salesmenRoutes);
 router.use('/accounts', accountsRoutes);
 router.use('/openings', openingsRoutes);
+router.use('/posting-config', postingConfigRoutes);
 
 module.exports = router;

@@ -76,7 +76,7 @@ class BankChequeController extends ChangeNotifier {
   }
 
   BankChequeModel? findById(String id) {
-    try { return _items.firstWhere((i) => i.id == id); } catch (_) { return null; }
+    try { return _items.firstWhere((i) => i.id == id || i.text('chequeId') == id); } catch (_) { return null; }
   }
 
   void _onSyncComplete() {

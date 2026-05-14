@@ -8,4 +8,9 @@ class OpeningPayable extends BaseSettingsModel {
     final data = Map<String, dynamic>.from(map)..remove('id');
     return OpeningPayable(id: '${map['id'] ?? ''}', data: data);
   }
+
+  String get vendorId => text('vendorId');
+  double get amount   => number('amount');
+  String get date     => text('date');
+  String get notes    => text('notes');
 }

@@ -558,6 +558,38 @@ const settingsConfigs = {
       };
     },
   },
+
+  // ─── Posting Configuration ────────────────────────────────────────────────
+  // Maps business events to the correct GL accounts for auto-posting.
+  // Stored as a single document (singleton) in the settings collection.
+  postingConfig: {
+    entity: 'postingConfig',
+    sanitize: async ({ uid, body }) => {
+      const errors = [];
+
+      const fields = [
+        'arAccountId', 'apAccountId', 'salesRevenueAccountId',
+        'purchaseExpenseAccountId', 'cashAccountId', 'defaultBankAccountId',
+        'chickenProductId',
+      ];
+      const data = {};
+
+      for (const field of fields) {
+        const val = asNullableString(body[field]);
+        if (val) {
+          if (field === 'chickenProductId') {
+            await requireReference(uid, 'products', val, field, errors);
+          } else if (field !== 'chickenProductId') {
+            await requireReference(uid, 'accounts', val, field, errors);
+          }
+        }
+        data[field] = val;
+      }
+      data.notes = asNullableString(body.notes);
+
+      return { data, errors };
+    },
+  },
 };
 
 function stampNewDocument(uid, data) {

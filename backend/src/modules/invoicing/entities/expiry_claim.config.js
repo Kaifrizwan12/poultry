@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asBoolean, asEnum,
-  requireSettingsRef, nextSequentialId,
+  requireSettingsRef, nextBusinessId,
 } = require('../invoicing.validators');
 
 module.exports = {
@@ -11,7 +11,7 @@ module.exports = {
 
     const claimId = id
       ? asNullableString(body.claimId)
-      : await nextSequentialId(uid, 'expiryClaims', 'EC');
+      : await nextBusinessId(uid, 'expiryClaims', 'EC');
 
     const direction = asEnum(body.direction, 'direction', errors, ['from_customer', 'to_vendor'], 'from_customer');
 

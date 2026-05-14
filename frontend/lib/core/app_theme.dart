@@ -77,6 +77,39 @@ class AppTheme {
         ],
       );
 
+  static InputDecoration inputDecoration(
+    String? label, {
+    String? hintText,
+    Widget? prefixIcon,
+    Widget? suffixIcon,
+    bool dense = true,
+    bool readOnly = false,
+  }) {
+    final hasLabel = label != null && label.isNotEmpty;
+    return InputDecoration(
+      // Label always sits above the field (never floats from inside).
+      // hintText shows inside when the field is empty — same pattern as
+      // the Settings module's _LabeledField + hintText approach.
+      labelText: hasLabel ? label : null,
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      hintText: hintText ?? (hasLabel ? label : null),
+      hintStyle: const TextStyle(
+        color: textTertiary,
+        fontSize: 13,
+        fontWeight: FontWeight.w400,
+      ),
+      labelStyle: const TextStyle(
+        color: textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
+      prefixIcon: prefixIcon,
+      suffixIcon: suffixIcon,
+      isDense: dense,
+      fillColor: readOnly ? clayBg : surfaceWhite,
+    );
+  }
+
   static TextStyle navLabel([Color? color]) => GoogleFonts.dmSans(
         fontSize: 13,
         fontWeight: FontWeight.w500,
@@ -182,6 +215,13 @@ class AppTheme {
         ),
         labelStyle: GoogleFonts.dmSans(
           color: textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+        // When floatingLabelBehavior.always is used, this style applies
+        // to the label shown above the field — matches _LabeledField in settings.
+        floatingLabelStyle: GoogleFonts.dmSans(
+          color: textSecondary,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
         helperStyle: GoogleFonts.dmSans(

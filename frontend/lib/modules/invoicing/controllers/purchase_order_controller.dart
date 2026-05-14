@@ -71,7 +71,7 @@ class PurchaseOrderController extends ChangeNotifier {
   }
 
   PurchaseOrderModel? findById(String id) {
-    try { return _items.firstWhere((i) => i.id == id); } catch (_) { return null; }
+    try { return _items.firstWhere((i) => i.id == id || i.text('orderId') == id); } catch (_) { return null; }
   }
 
   void _onSyncComplete() {

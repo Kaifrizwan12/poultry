@@ -4,6 +4,9 @@ import 'package:farm_mgt_auth/modules/accounts_reports/accounts_reports_scope.da
 import 'package:farm_mgt_auth/modules/accounts_reports/views/accounts_reports_screen.dart';
 import 'package:farm_mgt_auth/modules/auth/models/user_model.dart';
 import 'package:farm_mgt_auth/modules/home/home_screen.dart';
+import 'package:farm_mgt_auth/modules/invoicing/invoicing_scope.dart';
+import 'package:farm_mgt_auth/modules/invoicing/views/invoicing_screen.dart';
+import 'package:farm_mgt_auth/modules/invoicing/views/transactions_screen.dart';
 import 'package:farm_mgt_auth/modules/poultry/poultry_scope.dart';
 import 'package:farm_mgt_auth/modules/poultry/views/poultry_screen.dart';
 import 'package:farm_mgt_auth/modules/settings/views/settings_screen.dart';
@@ -324,6 +327,10 @@ class _MainShellState extends State<MainShell> {
             Navigator.of(context).pushReplacementNamed(RouteManager.home);
           },
         );
+      case 2:
+        return const InvoicingScope(child: InvoicingScreen());
+      case 3:
+        return const InvoicingScope(child: TransactionsScreen());
       case 4:
         return const PoultryScope(child: PoultryScreen());
       case 5:

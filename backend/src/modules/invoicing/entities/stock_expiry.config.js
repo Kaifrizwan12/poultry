@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber,
-  requireSettingsRef, nextSequentialId,
+  requireSettingsRef, nextBusinessId,
 } = require('../invoicing.validators');
 
 module.exports = {
@@ -11,7 +11,7 @@ module.exports = {
 
     const expiryId = id
       ? asNullableString(body.expiryId)
-      : await nextSequentialId(uid, 'stockExpiries', 'EXP');
+      : await nextBusinessId(uid, 'stockExpiries', 'EXP');
 
     const rawItems = Array.isArray(body.items) ? body.items : [];
     const items = [];

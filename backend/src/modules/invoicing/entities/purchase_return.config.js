@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asEnum,
-  requireSettingsRef, requireInvoicingRef, nextSequentialId,
+  requireSettingsRef, requireInvoicingRef, nextBusinessId,
 } = require('../invoicing.validators');
 
 function calcLineValues(item) {
@@ -27,7 +27,7 @@ module.exports = {
 
     const returnId = id
       ? asNullableString(body.returnId)
-      : await nextSequentialId(uid, 'purchaseReturns', 'PR');
+      : await nextBusinessId(uid, 'purchaseReturns', 'PR');
 
     const returnType = asEnum(body.returnType, 'returnType', errors, ['with_invoice', 'without_invoice'], 'without_invoice');
 

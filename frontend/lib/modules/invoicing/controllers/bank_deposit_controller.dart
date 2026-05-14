@@ -81,7 +81,7 @@ class BankDepositController extends ChangeNotifier {
   }
 
   BankDepositModel? findById(String id) {
-    try { return _items.firstWhere((i) => i.id == id); } catch (_) { return null; }
+    try { return _items.firstWhere((i) => i.id == id || i.text('depositId') == id); } catch (_) { return null; }
   }
 
   void _onSyncComplete() {

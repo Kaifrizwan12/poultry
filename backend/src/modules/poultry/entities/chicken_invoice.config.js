@@ -80,6 +80,10 @@ module.exports = {
       driverName:  asNullableString(body.driverName),
       salesmanId,
       notes:       asNullableString(body.notes),
+      // Integration toggles — defaults false so existing records are unaffected
+      postToLedger:        asBoolean(body.postToLedger, false),
+      createSalesInvoice:  asBoolean(body.createSalesInvoice, false),
+      linkedSalesInvoiceId: asNullableString(body.linkedSalesInvoiceId),
     };
 
     return { data, errors };

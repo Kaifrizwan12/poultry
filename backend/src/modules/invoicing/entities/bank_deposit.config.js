@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asBoolean, asEnum,
-  requireSettingsRef, nextSequentialId,
+  requireSettingsRef, nextBusinessId,
 } = require('../invoicing.validators');
 
 module.exports = {
@@ -11,7 +11,7 @@ module.exports = {
 
     const depositId = id
       ? asNullableString(body.depositId)
-      : await nextSequentialId(uid, 'bankDeposits', 'DEP');
+      : await nextBusinessId(uid, 'bankDeposits', 'DEP');
 
     const depositType = asEnum(body.depositType, 'depositType', errors, ['cash', 'cheque'], 'cash');
 

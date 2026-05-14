@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asEnum, cleanStringList,
-  requireSettingsRef, requireInvoicingRef, nextSequentialId,
+  requireSettingsRef, requireInvoicingRef, nextBusinessId,
 } = require('../invoicing.validators');
 
 module.exports = {
@@ -11,7 +11,7 @@ module.exports = {
 
     const promiseId = id
       ? asNullableString(body.promiseId)
-      : await nextSequentialId(uid, 'paymentPromises', 'PP');
+      : await nextBusinessId(uid, 'paymentPromises', 'PP');
 
     const promiseType = asEnum(body.promiseType, 'promiseType', errors, ['recovery', 'payment'], 'recovery');
 

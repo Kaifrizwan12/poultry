@@ -28,8 +28,15 @@ class ChickenInvoiceModel extends BaseSettingsModel {
   double get advanceReceived => number('advanceReceived');
   double get balanceDue => number('balanceDue');
   String get paymentStatus => text('paymentStatus');
-  String get vehicleNo => text('vehicleNo');
+  String get vehicleNo  => text('vehicleNo');
   String get driverName => text('driverName');
   String get salesmanId => text('salesmanId');
-  String get notes => text('notes');
+  String get notes      => text('notes');
+
+  // Integration toggles
+  bool   get postToLedger        => boolean('postToLedger');
+  bool   get createSalesInvoice  => boolean('createSalesInvoice');
+  String get linkedSalesInvoiceId => text('linkedSalesInvoiceId');
+
+  List<String> get linkedLedgerEntryIds => stringList('linkedLedgerEntryIds');
 }

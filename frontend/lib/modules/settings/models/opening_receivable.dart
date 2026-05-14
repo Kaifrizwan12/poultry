@@ -8,4 +8,9 @@ class OpeningReceivable extends BaseSettingsModel {
     final data = Map<String, dynamic>.from(map)..remove('id');
     return OpeningReceivable(id: '${map['id'] ?? ''}', data: data);
   }
+
+  String get customerId => text('customerId');
+  double get amount     => number('amount');
+  String get date       => text('date');
+  String get notes      => text('notes');
 }

@@ -9,9 +9,16 @@ class Product extends BaseSettingsModel {
     return Product(id: '${map['id'] ?? ''}', data: data);
   }
 
-  String get longName => text('longName');
-  String get companyId => text('companyId');
-  String get purPackingId => text('purPackingId');
+  // ── Identity ──────────────────────────────────────────────────────────────────
+  String get name        => text('name');
+  String get code        => text('code');
+  String get description => text('description');
+  String get groupId     => text('groupId');
+  String get subGroupId  => text('subGroupId');
+  String get unitId      => text('unitId');
+  String get longName    => text('longName');
+  String get companyId   => text('companyId');
+  String get purPackingId  => text('purPackingId');
   String get salePackingId => text('salePackingId');
   double get size => number('size');
   double get displayOrder => number('displayOrder');

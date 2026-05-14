@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asEnum,
-  requireSettingsRef, requireInvoicingRef, nextSequentialId,
+  requireSettingsRef, requireInvoicingRef, nextBusinessId,
 } = require('../invoicing.validators');
 
 module.exports = {
@@ -11,7 +11,7 @@ module.exports = {
 
     const reconciliationId = id
       ? asNullableString(body.reconciliationId)
-      : await nextSequentialId(uid, 'salesmanCashReconciliations', 'SCR');
+      : await nextBusinessId(uid, 'salesmanCashReconciliations', 'SCR');
 
     const salesmanId = asRequiredString(body.salesmanId, 'salesmanId', errors);
     await requireSettingsRef(uid, 'salesmen', salesmanId, 'salesmanId', errors);

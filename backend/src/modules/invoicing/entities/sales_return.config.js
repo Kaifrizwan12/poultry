@@ -1,6 +1,6 @@
 const {
   asRequiredString, asNullableString, asNumber, asBoolean, asEnum,
-  requireSettingsRef, requireInvoicingRef, nextSequentialId, invoicingCollection,
+  requireSettingsRef, requireInvoicingRef, nextBusinessId, invoicingCollection,
 } = require('../invoicing.validators');
 
 function calcLineValues(item) {
@@ -27,7 +27,7 @@ module.exports = {
 
     const returnId = id
       ? asNullableString(body.returnId)
-      : await nextSequentialId(uid, 'salesReturns', 'SR');
+      : await nextBusinessId(uid, 'salesReturns', 'SR');
 
     const returnType = asEnum(body.returnType, 'returnType', errors, ['with_invoice', 'without_invoice'], 'without_invoice');
 
@@ -69,14 +69,43 @@ module.exports = {
       if (returnType === 'with_invoice') {
         const currentReturnQtyPacks = asNumber(r.currentReturnQtyPacks, `items[${i}].currentReturnQtyPacks`, errors, { min: 0, defaultValue: 0 });
         const currentReturnQtyLoose = asNumber(r.currentReturnQtyLoose, `items[${i}].currentReturnQtyLoose`, errors, { min: 0, defaultValue: 0 });
+        const saleQtyPacks   = asNumber(r.saleQtyPacks, `items[${i}].saleQtyPacks`, errors, { min: 0, defaultValue: 0 });
+        const saleQtyLoose   = asNumber(r.saleQtyLoose, `items[${i}].saleQtyLoose`, errors, { min: 0, defaultValue: 0 });
+
+        // Server-side: compute cumulative previous returns for this saleId + productId
+        let prevReturnedQtyPacks = 0;
+        let prevReturnedQtyLoose = 0;
+        if (saleId && productId && !errors.length) {
+          const prevSnap = await invoicingCollection(uid, 'salesReturns')
+            .where('saleId', '==', saleId).get();
+          prevSnap.docs.forEach(doc => {
+            if (doc.id === id) return; // skip current doc on update
+            const docItems = doc.data().items || [];
+            const match = docItems.find(it => it.productId === productId);
+            if (match) {
+              prevReturnedQtyPacks += match.currentReturnQtyPacks || 0;
+              prevReturnedQtyLoose += match.currentReturnQtyLoose || 0;
+            }
+          });
+        }
+
+        const totalReturnPacks = prevReturnedQtyPacks + currentReturnQtyPacks;
+        const totalReturnLoose = prevReturnedQtyLoose + currentReturnQtyLoose;
+        if (totalReturnPacks > saleQtyPacks + 0.001) {
+          errors.push(`items[${i}]: return qty (${totalReturnPacks} packs) exceeds original sale qty (${saleQtyPacks} packs) for product ${productId}`);
+        }
+        if (totalReturnLoose > saleQtyLoose + 0.001) {
+          errors.push(`items[${i}]: return loose qty (${totalReturnLoose}) exceeds original sale loose qty (${saleQtyLoose}) for product ${productId}`);
+        }
+
         const calc = calcLineValues({ qtyPacks: currentReturnQtyPacks, qtyLoose: currentReturnQtyLoose, pack, price, discPercent, salesTaxPercent });
         lineItem = {
           ...lineItem,
-          saleQtyPacks:          asNumber(r.saleQtyPacks, `items[${i}].saleQtyPacks`, errors, { min: 0, defaultValue: 0 }),
-          saleQtyLoose:          asNumber(r.saleQtyLoose, `items[${i}].saleQtyLoose`, errors, { min: 0, defaultValue: 0 }),
+          saleQtyPacks,
+          saleQtyLoose,
           saleBns:               asNumber(r.saleBns, `items[${i}].saleBns`, errors, { min: 0, defaultValue: 0 }),
-          prevReturnedQtyPacks:  asNumber(r.prevReturnedQtyPacks, `items[${i}].prevReturnedQtyPacks`, errors, { min: 0, defaultValue: 0 }),
-          prevReturnedQtyLoose:  asNumber(r.prevReturnedQtyLoose, `items[${i}].prevReturnedQtyLoose`, errors, { min: 0, defaultValue: 0 }),
+          prevReturnedQtyPacks, // server-computed, not trusted from client
+          prevReturnedQtyLoose,
           currentReturnQtyPacks,
           currentReturnQtyLoose,
           ...calc,

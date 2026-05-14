@@ -4,6 +4,8 @@ const { stampNew, stampUpdated } = require('./poultry.validators');
 const { getFlockStatus, getDemandAnalysis, updateFlockCurrentBirds } = require('./poultry.service');
 const { getDb } = require('../../core/firebase/firebase');
 const { log } = require('../../core/logger');
+const { settingsEntityDoc, settingsCollection } = require('../../utils/firestore');
+const { nowIso } = require('./poultry.validators');
 
 const feedScheduleConfig   = require('./entities/feed_schedule.config');
 const vaccineScheduleConfig = require('./entities/vaccine_schedule.config');
@@ -296,9 +298,231 @@ router.post('/chicken-invoices', async (req, res) => {
     });
 
     log('INFO', `POST /poultry/chicken-invoices → created ${savedId}`, { uid, flockId: data.flockId });
+
+    // ── Optional cross-module integrations ────────────────────────────────────
+    const postUpdates = {};
+
+    // 1. Create Sales Invoice in invoicing module (when toggle is on)
+    if (data.createSalesInvoice) {
+      try {
+        const linkedSiId = await _chickenInvoiceToSalesInvoice(uid, savedId, savedPayload);
+        if (linkedSiId) {
+          postUpdates.linkedSalesInvoiceId = linkedSiId;
+          log('INFO', `POST /poultry/chicken-invoices → created linked SI ${linkedSiId}`, { uid });
+        }
+      } catch (siErr) {
+        log('WARN', `POST /poultry/chicken-invoices → createSalesInvoice failed: ${siErr.message}`, { uid });
+      }
+    }
+
+    // 2. Post ledger entries (when toggle is on)
+    if (data.postToLedger) {
+      try {
+        const entryIds = await _chickenInvoiceToLedger(uid, savedId, savedPayload, postUpdates.linkedSalesInvoiceId);
+        postUpdates.linkedLedgerEntryIds = entryIds;
+        log('INFO', `POST /poultry/chicken-invoices → posted ${entryIds.length} ledger entries`, { uid });
+      } catch (ledgerErr) {
+        log('WARN', `POST /poultry/chicken-invoices → postToLedger failed: ${ledgerErr.message}`, { uid });
+      }
+    }
+
+    // Persist integration references back on the chicken invoice document
+    if (Object.keys(postUpdates).length) {
+      await poultryCollection(uid, 'chickenInvoices').doc(savedId).update({
+        ...postUpdates, updatedAt: nowIso(),
+      });
+      Object.assign(savedPayload, postUpdates);
+    }
+
     return ok(res, { id: savedId, ...savedPayload });
   } catch (e) { log('ERROR', 'POST /poultry/chicken-invoices failed', { uid, error: e.message }); return err(res, e.message || 'Failed to create', e.statusCode || 500); }
 });
+
+// ── Chicken invoice integration helpers ────────────────────────────────────────
+
+async function _getPostingConfig(uid) {
+  const snap = await settingsEntityDoc(uid, 'postingConfig').get();
+  return snap.exists ? snap.data() : {};
+}
+
+async function _chickenInvoiceToSalesInvoice(uid, chickenInvId, ci) {
+  const db      = getDb();
+  const cfg     = await _getPostingConfig(uid);
+  const { invoicingCollection, nextBusinessId, stampNew: iStampNew } =
+    require('../invoicing/invoicing.validators');
+
+  const chickenProductId = cfg.chickenProductId || '';
+  if (!chickenProductId) {
+    log('WARN', '_chickenInvoiceToSalesInvoice — chickenProductId not configured in postingConfig', { uid });
+    return null;
+  }
+
+  // Fetch product details for the line item
+  const productSnap = await settingsCollection(uid, 'products').doc(chickenProductId).get();
+  if (!productSnap.exists) {
+    log('WARN', `_chickenInvoiceToSalesInvoice — product ${chickenProductId} not found`, { uid });
+    return null;
+  }
+  const product = productSnap.data();
+
+  const saleId   = await nextBusinessId(uid, 'salesInvoices', 'SI');
+  const ts       = nowIso();
+
+  // Build a single-line Sales Invoice mirroring the chicken sale
+  const lineGross = ci.totalAmount;
+  const siPayload = {
+    saleId,
+    entryDate:    ci.invoiceDate ? ci.invoiceDate.substring(0, 10) : ts.substring(0, 10),
+    customerId:   ci.customerId,
+    customerName: ci.customerName || '',
+    salesmanId:   ci.salesmanId || '',
+    salesmanName: '',
+    townId: '', sectorId: '',
+    prevDebit:    0,
+    status:       'saved',
+    items: [{
+      sNo:           1,
+      productId:     chickenProductId,
+      productName:   product.name || 'Live Chickens',
+      packingName:   '',
+      pack:          1,
+      unit:          '',
+      qtyPacks:      ci.birdsCount || 0,
+      qtyLoose:      0,
+      bonus:         0,
+      price:         ci.pricePerKg || 0,
+      discPercent:   ci.discountPercent || 0,
+      salesTaxPercent: ci.taxPercent || 0,
+      lineGross,
+      lineDisc:      ci.discountAmount || 0,
+      lineNet:       ci.netAmount || 0,
+      lineTax:       ci.taxAmount || 0,
+      lineValueIncST: ci.totalAmount || 0,
+    }],
+    gross:        lineGross,
+    disc2Percent: 0,
+    discounts:    ci.discountAmount || 0,
+    invoiceValue: ci.netAmount || 0,
+    salesTax:     ci.taxAmount || 0,
+    fTax: 0, expense: 0, totalSED: 0, spcDisc: 0,
+    netValue:     ci.totalAmount || 0,
+    totalPayable: ci.totalAmount || 0,
+    ttlQty:       ci.birdsCount || 0,
+    paidAmount:   ci.advanceReceived || 0,
+    remBalance:   ci.balanceDue || 0,
+    description:  `Auto-created from Chicken Invoice ${ci.invoiceNo}`,
+    remarks:      '',
+    linkedChickenInvoiceId: chickenInvId,
+    uid, createdAt: ts, updatedAt: ts,
+  };
+
+  const siCol  = invoicingCollection(uid, 'salesInvoices');
+  const siRef  = siCol.doc();
+  await siRef.set(siPayload);
+  return siRef.id;
+}
+
+async function _chickenInvoiceToLedger(uid, chickenInvId, ci, linkedSiId) {
+  const db  = getDb();
+  const cfg = await _getPostingConfig(uid);
+  const { accountsCollection } = require('../accounts/accounts.validators');
+
+  const arAccountId       = cfg.arAccountId || '';
+  const salesRevAccountId = cfg.salesRevenueAccountId || '';
+
+  if (!arAccountId || !salesRevAccountId) {
+    log('WARN', '_chickenInvoiceToLedger — arAccountId or salesRevenueAccountId not configured', { uid });
+    return [];
+  }
+
+  const ts      = nowIso();
+  const entryIds = [];
+  const baseNo   = `CI-${ci.invoiceNo}-`;
+
+  // 1. Debit Accounts Receivable (money owed by customer)
+  const arRef = accountsCollection(uid, 'ledgerEntries').doc();
+  await arRef.set({
+    entryNo:       baseNo + 'AR',
+    entryDate:     ci.invoiceDate ? ci.invoiceDate.substring(0, 10) : ts.substring(0, 10),
+    accountId:     arAccountId,
+    entryType:     'debit',
+    amount:        ci.totalAmount || 0,
+    description:   `Chicken sale — ${ci.invoiceNo} — ${ci.customerName || ''}`,
+    referenceType: 'other',
+    referenceId:   linkedSiId || chickenInvId,
+    referenceNo:   ci.invoiceNo,
+    tags:          ['auto-post', 'chicken-invoice'],
+    isReconciled:  false,
+    reconciledAt:  null,
+    notes:         null,
+    uid, createdAt: ts, updatedAt: ts,
+  });
+  entryIds.push(arRef.id);
+
+  // 2. Credit Sales Revenue
+  const srRef = accountsCollection(uid, 'ledgerEntries').doc();
+  await srRef.set({
+    entryNo:       baseNo + 'SR',
+    entryDate:     ci.invoiceDate ? ci.invoiceDate.substring(0, 10) : ts.substring(0, 10),
+    accountId:     salesRevAccountId,
+    entryType:     'credit',
+    amount:        ci.netAmount || 0,
+    description:   `Chicken sale revenue — ${ci.invoiceNo}`,
+    referenceType: 'other',
+    referenceId:   linkedSiId || chickenInvId,
+    referenceNo:   ci.invoiceNo,
+    tags:          ['auto-post', 'chicken-invoice'],
+    isReconciled:  false,
+    reconciledAt:  null,
+    notes:         null,
+    uid, createdAt: ts, updatedAt: ts,
+  });
+  entryIds.push(srRef.id);
+
+  // 3. If advance was received, also debit Cash
+  if (ci.advanceReceived > 0 && cfg.cashAccountId) {
+    const cashRef = accountsCollection(uid, 'ledgerEntries').doc();
+    await cashRef.set({
+      entryNo:       baseNo + 'CASH',
+      entryDate:     ci.invoiceDate ? ci.invoiceDate.substring(0, 10) : ts.substring(0, 10),
+      accountId:     cfg.cashAccountId,
+      entryType:     'debit',
+      amount:        ci.advanceReceived,
+      description:   `Advance received — ${ci.invoiceNo}`,
+      referenceType: 'other',
+      referenceId:   linkedSiId || chickenInvId,
+      referenceNo:   ci.invoiceNo,
+      tags:          ['auto-post', 'chicken-invoice', 'advance'],
+      isReconciled:  false,
+      reconciledAt:  null,
+      notes:         null,
+      uid, createdAt: ts, updatedAt: ts,
+    });
+    entryIds.push(cashRef.id);
+
+    // Credit AR for advance portion
+    const arAdvRef = accountsCollection(uid, 'ledgerEntries').doc();
+    await arAdvRef.set({
+      entryNo:       baseNo + 'AR-ADV',
+      entryDate:     ci.invoiceDate ? ci.invoiceDate.substring(0, 10) : ts.substring(0, 10),
+      accountId:     arAccountId,
+      entryType:     'credit',
+      amount:        ci.advanceReceived,
+      description:   `AR reduced by advance — ${ci.invoiceNo}`,
+      referenceType: 'other',
+      referenceId:   linkedSiId || chickenInvId,
+      referenceNo:   ci.invoiceNo,
+      tags:          ['auto-post', 'chicken-invoice', 'advance'],
+      isReconciled:  false,
+      reconciledAt:  null,
+      notes:         null,
+      uid, createdAt: ts, updatedAt: ts,
+    });
+    entryIds.push(arAdvRef.id);
+  }
+
+  return entryIds;
+}
 
 router.put('/chicken-invoices/:id', async (req, res) => {
   const uid = req.user.uid;

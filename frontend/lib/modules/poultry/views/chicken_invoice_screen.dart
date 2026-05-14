@@ -255,9 +255,11 @@ class _InvoiceFormState extends State<_InvoiceForm> {
         'invoiceDate': DateTime.now().toIso8601String(),
         'birdsCount': widget.flock.currentBirdsCount,
         'saleType': 'live_weight',
-        'discountPercent': 0,
-        'taxPercent': 0,
-        'advanceReceived': 0,
+        'discountPercent':     0,
+        'taxPercent':          0,
+        'advanceReceived':     0,
+        'postToLedger':        false,
+        'createSalesInvoice':  false,
       };
     }
   }
@@ -309,6 +311,60 @@ class _InvoiceFormState extends State<_InvoiceForm> {
             _field('Vehicle No', _text('vehicleNo')),
             _field('Driver Name', _text('driverName')),
             _field('Notes', _textArea('notes')),
+
+            _section('Accounting Integration'),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.clayBg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.softBorder),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'These options post this sale automatically to the Invoicing and Accounts modules. '
+                    'Requires Posting Configuration to be set in Settings.',
+                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppTheme.terra400,
+                    title: const Text('Create Sales Invoice',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                        'Auto-creates a Sales Invoice in the Invoicing module using the configured Chicken Product.',
+                        style: TextStyle(fontSize: 11)),
+                    value: _v['createSalesInvoice'] == true,
+                    onChanged: (v) => setState(() => _v['createSalesInvoice'] = v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    activeColor: AppTheme.terra400,
+                    title: const Text('Post to Ledger',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    subtitle: const Text(
+                        'Auto-posts Debit Accounts Receivable + Credit Sales Revenue entries to the accounts ledger.',
+                        style: TextStyle(fontSize: 11)),
+                    value: _v['postToLedger'] == true,
+                    onChanged: (v) => setState(() => _v['postToLedger'] = v),
+                  ),
+                  if (_v['linkedSalesInvoiceId'] != null &&
+                      (_v['linkedSalesInvoiceId'] as String).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(children: [
+                        const Icon(Icons.link, size: 14, color: AppTheme.successText),
+                        const SizedBox(width: 4),
+                        Text('Linked Sales Invoice created',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.successText)),
+                      ]),
+                    ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 20),
             Row(children: [

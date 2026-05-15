@@ -1,709 +1,767 @@
-# Invoicing & Transactions — Plain English Guide
+# Farm Management System — Complete User Guide
 
-This is written for the farm owner, accountant, or data entry person who will actually use this app every day. No accounting jargon. No guessing.
-
----
-
-## First — What Are These Two Tabs?
-
-**Invoicing tab** = buying and selling goods. When you order feed from your supplier, when your goods arrive, when you sell to your customers, when something gets returned — all of that lives here.
-
-**Transactions tab** = money movement and bookkeeping. When your salesman collects cash from customers, when you deposit that cash in the bank, when you issue a cheque to a vendor, when you confirm or reconcile — all of that is here.
+This guide covers the entire system from first setup to daily operations. It is written for the farm owner, accountant, data entry staff, and salesmen. No accounting background needed.
 
 ---
 
-## Document Numbers — The Only IDs You'll Ever See
+## Part 1 — How the System Is Organized
 
-When you save any document, the app automatically gives it a number like `SI-0001`, `PO-0002`, `REC-0005`. That number is yours. It prints on your documents. You search by it. You never need to know or type anything else.
+The app has six main sections accessible from the left sidebar:
 
-The database has its own internal IDs but you will never see them, never need them, and never have to type them anywhere.
+| Section | What it's for |
+|---|---|
+| **Home** | Overview dashboard |
+| **Settings** | Master data setup — products, customers, vendors, accounts, etc. |
+| **Invoicing** | Buying goods, selling goods, stock adjustments |
+| **Transactions** | Cash collection, vouchers, bank operations, promises |
+| **Poultry** | Flock management — bird placement, feeding, vaccination, chicken sales |
+| **Reports** | Coming soon |
+
+**The golden rule:** Always set up Settings first. Every other module depends on data that lives in Settings.
 
 ---
 
-## How to Open Any Old Record
+## Part 2 — Settings: Set Up Once, Use Everywhere
 
-Every screen has a **Records** button at the bottom. Click it and a search box opens showing all saved records for that screen.
+Settings is your master data. You set it up once at the start. Everything in Invoicing, Transactions, and Poultry references this data.
 
+### 2.1 Setup Order (Follow This Exactly)
+
+Set up settings in this order — each step depends on the previous one:
+
+1. **Units** — kg, litre, piece, dozen, etc.
+2. **Packings** — 50kg Bag, 5kg Bag, 1L Bottle, etc. Each packing links to a Unit.
+3. **Companies** — the companies you buy from or sell to
+4. **Product Groups** — Poultry Feed, Vaccines & Medicines, etc.
+5. **Product Sub-Groups** — Broiler Feed, Layer Feed, Live Vaccines, etc. Each links to a Group.
+6. **Products** — your actual inventory items. Each product links to a Group, Sub-Group, Unit, and two Packings (one for purchase, one for sale).
+7. **Discount Schemes** — customer-level discount rules (percentage or flat amount)
+8. **Towns** — geographic areas
+9. **Sectors** — sub-areas within towns
+10. **Salesmen** — your sales representatives. Each links to the towns they cover.
+11. **Vendors** — your suppliers
+12. **Customers** — your buyers. Each links to a Town, Sector, Salesman, and optionally a Discount Scheme.
+13. **Accounts (Chart of Accounts)** — your bookkeeping accounts (Cash, Bank, Revenue, Expenses, etc.)
+14. **Opening Stock** — how much of each product you had at system start
+15. **Opening Receivables** — which customers owed you money at system start
+16. **Opening Payables** — which vendors you owed money at system start
+17. **Posting Config** — (last, after all accounts exist) maps GL accounts for automatic ledger posting
+
+### 2.2 Products — The Most Important Setting
+
+Every product has two packing configurations:
+
+- **Purchase Packing** — the size you receive from vendors (e.g. 50kg Bag)
+- **Sale Packing** — the size you sell to customers (e.g. 5kg Bag)
+
+This matters because when your salesman sells 100 packs of 5kg bags, the system knows that's 500kg total.
+
+Products also have three sale price tiers (Sale Price 1, 2, 3) and a purchase price. The system auto-fills Sale Price 1 when you create a sales invoice. Your accountant can set up Discount Schemes in settings so the system auto-applies the right discount for each customer.
+
+### 2.3 Customers and Discount Schemes
+
+When you set a Discount Scheme on a customer, the system automatically applies it when you select that customer on a Sales Invoice:
+
+- **Percentage scheme** → fills the Disc2% field automatically
+- **Flat scheme** → fills the Spc Disc field automatically
+
+The scheme only applies if the current date falls within the scheme's Valid From / Valid To dates. If expired, no discount is applied.
+
+### 2.4 Posting Config — For Automatic Accounting
+
+If you want the system to automatically create ledger entries when you save certain transactions, set up Posting Config (Settings → Posting Config). Map these accounts:
+
+- **Accounts Receivable** — money customers owe you (e.g. account code 1101)
+- **Accounts Payable** — money you owe vendors (e.g. account code 2001)
+- **Sales Revenue** — your income account (e.g. account code 4001)
+- **Purchase/COGS** — your purchase expense account (e.g. account code 5001)
+- **Cash in Hand** — your petty cash account (e.g. account code 1001)
+- **Default Bank Account** — your main bank account (e.g. account code 1002)
+- **Chicken Product** — which product from your product list represents "live chickens sold" — used when Chicken Invoices auto-generate Sales Invoices
+
+---
+
+## Part 3 — Document Numbers
+
+Every document the system saves gets a unique number automatically. You never type these — they are assigned the moment you click Save.
+
+| Document type | Example number |
+|---|---|
+| Sales Invoice | `SI-0001` |
+| Purchase Order | `PO-0001` |
+| Purchase Invoice | `PI-0001` |
+| Sales Return | `SR-0001` |
+| Purchase Return | `PR-0001` |
+| Stock Issue | `STI-0001` |
+| Stock Return | `STR-0001` |
+| Recovery Invoice | `REC-0001` |
+| Cash Voucher (receiving) | `CRV-0001` |
+| Cash Voucher (payment) | `DBV-0001` |
+| Journal Voucher | `JRV-0001` |
+| Bank Cheque | `CHQ-0001` |
+| Bank Deposit | `DEP-0001` |
+| Payment Promise | `PP-0001` |
+
+Numbers are sequential per type and never reset. `SI-0001` is always the first sales invoice saved by this farm.
+
+---
+
+## Part 4 — Finding Any Old Record
+
+The system is moving to a **list-first** pattern.
+
+On migrated screens, you land on a records list first. Use the search box or filters, then:
+- click **New** to open a create dialog
+- click any row to open that record in a fixed-size edit/detail dialog
+
+On older inline screens that have not yet been migrated, you can still use the bottom **Records** button to open the search browser.
+
+**How to search:**
 - Type `SI-0003` → finds that exact invoice
 - Type `Al-Madina` → finds all records for that customer
 - Type `2026-04` → finds all records from April 2026
-- Click **Pending** toggle → shows only drafts you haven't finalized yet
+- Toggle **Pending** → shows only draft records
 
-Click any row → it loads into the form. Done. No need to memorize any codes.
+Press any row to load it into the form or dialog. You can then edit it, print it, or delete it.
 
----
-
-## Buttons You'll See on Almost Every Screen
-
-| Button | What it actually does |
-|---|---|
-| **Save** | Finalizes the document. Done. Can still be opened and edited later via Records. |
-| **Pending** | Saves a rough draft. Use this when you're not sure yet and want to come back. Only some screens have this. |
-| **Records** | Opens the search browser — find any saved or pending document by name, number, or date |
-| **Clear** | Wipes the form clean so you can start a new one |
-| **Remove** | Deletes the document that's currently loaded. Asks for confirmation first. |
-| **Print** | Not ready yet |
-| **Close** | Same as Clear on most screens |
-| **Populate** | Used on recovery screens — click this after choosing your salesman and it pulls in the customer data automatically |
-| **Load** | Used on list screens (confirmations, reconciliations) — click this after setting your filters and it shows the matching records |
+**There are no Firestore IDs, no internal codes, no database keys anywhere in the UI.** The only IDs you ever see or search by are the business numbers above.
 
 ---
 
-## Field Names in Plain English
+## Part 5 — Common Buttons (Everywhere in the System)
 
-| What the app calls it | What it actually means in real life |
+| Button | What it does |
 |---|---|
-| `Entry Date` | The date you are entering this record in the system |
-| `Bill Date` / `Vendor Bill No` | The date and number written on the supplier's paper invoice that came with the goods |
-| `Return Date` | The date the goods were physically returned |
-| `Prev Debit` | How much this customer already owed you before this sale. The app adds this to the invoice total so you know the full picture. |
-| `Prev Credit` | How much you already owed this vendor before this purchase. |
-| `Disc2 %` | An extra discount you want to apply to the whole invoice, on top of any per-product discounts you already gave |
-| `F.Tax` / `FTax %` | Further tax that the government sometimes requires on certain goods |
-| `SED` | Special Excise Duty — a specific government tax on some products |
-| `Spc Disc` | A one-off special discount on the whole invoice, in rupees (not a percentage) |
-| `Paid Amount` | How much the customer paid you right now at the time of this sale, or how much you paid the vendor at the time of purchase |
-| `Narration` | A short note explaining the transaction — for your own reference |
-| `To Main Store` | When a customer returns goods, this means the returned stock goes back into your main warehouse |
-| `Post Dated` | A cheque you've written but the bank should not cash it until a future date |
+| **Save** | Finalizes and saves the document |
+| **Pending** | Saves as a draft — use when you're not sure yet. Only some screens have this. |
+| **Records** | Opens the search browser on older inline screens. On migrated screens, the full records list is already the default landing view. |
+| **Clear** | Wipes the form clean for a new entry |
+| **Remove** | Deletes the currently loaded document (asks for confirmation) |
+| **Print** | Not yet implemented |
+| **Close** | Closes the dialog on migrated screens. On older inline screens it behaves like leaving the current form state. |
+| **Populate** | Recovery screens only — click after selecting salesman to load customer data |
+| **Load** | List screens (confirmations, reconciliations) — apply filters and show results |
+
+---
+
+## Part 6 — Common Field Names
+
+| Field name | What it means |
+|---|---|
+| `Entry Date` | The date you are entering this in the system |
+| `Bill Date` | The date printed on the supplier's paper invoice |
+| `Vendor Bill No` | The invoice number on the supplier's paper (not your number — their number) |
+| `Prev Debit` | How much this customer already owed you before this sale |
+| `Prev Credit` | How much you already owed this vendor before this purchase |
+| `Disc2 %` | Extra invoice-level discount percentage, applied after all per-line discounts |
+| `Spc Disc` | Special discount in rupees (flat amount) applied to the invoice total |
+| `F.Tax` / `FTax %` | Further Tax — a government tax sometimes required on specific goods |
+| `SED` | Special Excise Duty — a specific government tax |
+| `Paid Amount` | How much was paid at the time of this document |
+| `Narration` | A short note for your own reference |
+| `To Main Store` | Returned goods go back into your main warehouse |
+| `Post Dated` | This cheque is for a future date — don't cash it yet |
 | `Qty (P)` | Quantity in full packs (e.g. number of 50kg bags) |
-| `Qty (L)` | Quantity in loose units that don't fill a full pack (e.g. 15 kg extra outside the bags) |
+| `Qty (L)` | Quantity in loose units not filling a full pack (e.g. 15 extra kg) |
 
 ---
 
-## Invoicing Tab — Screen by Screen
+## Part 7 — The Invoicing Tab
 
 ---
 
-### 1. Purchase Order
+### Purchase Order
 
-**What is this?**
-You call your feed supplier and say "I want 20 bags of Starter Feed and 15 bags of Grower." Before anything arrives or is billed, you record this intention. That's a Purchase Order — it's your official request.
+**What it is:** You call your supplier and place an order before anything arrives. This records the order officially.
 
-**Who uses it:** The owner or purchase manager.
+**Who uses it:** Owner or purchase manager.
 
-**When:** Before the goods have arrived. You're just placing the order.
-
-**What happens next:** When the supplier actually delivers and sends you their bill, you create a Purchase Invoice (screen 3) and link it back to this Purchase Order.
-
-**Key fields:**
-- Vendor: which supplier are you ordering from
-- Line items: which products, how many packs, at what price
-- City: the vendor's city (for your records)
+**Tricky points:**
+- This is NOT a bill — the goods haven't arrived yet
+- When goods do arrive, you create a **Purchase Invoice** and link it back to this PO
+- The PO can also be sent to the vendor via the **Send Purchase Order** screen
 
 **Try it:**
-1. Pick your feed supplier from the Vendor dropdown
-2. In the line entry row, pick a product, enter Qty(P) = 20, Price = 430, click **Add**
-3. Add another product the same way
-4. Click **Pending** to save as a draft
-5. Click **Records**, toggle Pending, tap your draft — it loads back
-6. Click **Save** — you'll see an Order ID badge like `PO-0001`
+1. Select vendor → enter line items (product, qty, price) → click **Add** after each
+2. Click **Pending** → saves as a draft
+3. Click **Records**, toggle Pending, tap your draft to reload it
+4. Click **Save** → `PO-0001` badge appears
 
 ---
 
-### 2. Send Purchase Order
+### Send Purchase Order
 
-**What is this?**
-In Pakistani trade, when you place a large order you often send a bank draft (cheque drawn on your bank) to the supplier as advance payment or security before they dispatch the goods. This screen is where you record that you've sent the order along with the payment instrument.
+**What it is:** In Pakistani trade, large orders are often sent to the supplier with a bank draft (advance payment). This screen records that the PO was dispatched along with the payment instrument.
 
-Think of it as: "We have a PO. Now we are officially sending it to the supplier together with our draft/LC details."
+**Who receives it:** Your supplier/vendor.
 
-**Who uses it:** Accounts staff or owner when large orders are dispatched with advance payment.
-
-**Who receives it:** The supplier/vendor you are ordering from.
-
-**When:** After you've saved the Purchase Order, and when you're ready to formally dispatch it with payment details.
-
-**Key fields:**
-- Purchase Order: pick which PO you're sending (dropdown shows `PO-0001 • VendorName`)
-- Draft No: the demand draft or LC number from your bank
-- Draft Date: when you got the draft from the bank
-- Draft Amount: how much the draft is for
-- Bank Account: which of your bank accounts the draft is drawn on
-- Include All Products When Printing: a print setting only
-
-**What happens automatically:** When you select the Purchase Order, the vendor's name and all the ordered items fill in automatically. You don't need to re-enter them.
+**Tricky points:**
+- You must save the Purchase Order first
+- When you select the PO, the vendor name and all items fill automatically — you don't re-enter them
+- The Draft No is the LC or demand draft number from your bank
+- There is **no Pending button** — you either sent it or you didn't
+- The app records this for your audit trail but does not actually email or WhatsApp the vendor — you do that separately
 
 **Try it:**
-1. Save a Purchase Order first (screen 1)
-2. Open Send Purchase Order
-3. Click the Purchase Order dropdown and pick your PO — items fill automatically
-4. Fill in the draft details your bank gave you
-5. Click **Save**
-
-> There is no **Pending** button here. You either send the PO or you don't.
-
----
-
-### 3. Purchase Invoice
-
-**What is this?**
-The supplier's goods have arrived. They hand you a paper bill. This is where you enter that bill into the system.
-
-**Who uses it:** Accounts staff or data entry person.
-
-**When:** When the supplier's truck arrives and they hand over the paper invoice along with the goods.
-
-**Why link to the PO?**
-If you made a Purchase Order for this delivery, link it here. The vendor, city, and all items will fill in automatically from the PO. You just need to verify the quantities match what actually arrived and enter the vendor's bill number and date.
-
-**If there was no PO:** Just enter the vendor manually and type in the items. Some deliveries happen without a prior PO.
-
-**Key fields:**
-- Vendor Bill No: the invoice number printed on the supplier's paper bill (e.g. `NP-INV-78432`)
-- Bill Date: the date printed on the supplier's paper bill
-- Prev Credit: if the supplier already had a credit balance in their account with you
-- Paid Amount: if you paid the vendor on the spot
-- Disc2%, F.Tax, SED, Spc Disc: only if applicable to this specific bill
-
-**Try it:**
-1. Create a Purchase Order first if you have one
-2. Open Purchase Invoice
-3. Optional: pick the PO from the dropdown → vendor and items fill automatically
-4. Enter the Vendor Bill No from the paper invoice
-5. Set Paid Amount if you paid anything right now
-6. Click **Save** — you'll see `PI-0001`
-
----
-
-### 4. Purchase Return (With Invoice)
-
-**What is this?**
-You received goods from a vendor, entered a Purchase Invoice, but some goods were damaged or wrong. You want to send them back and get credit.
-
-"With Invoice" means you're linking this return directly to a specific Purchase Invoice you already have in the system.
-
-**Who uses it:** Accounts staff.
-
-**When:** After a Purchase Invoice has been saved and you discover a problem with the goods.
-
-**What happens automatically:** When you select the Purchase Invoice, the vendor and items fill in. You reduce the quantities to what you're actually returning.
-
-**Try it:**
-1. Save a Purchase Invoice first
-2. Open Purchase Return (With Invoice)
-3. Pick the Purchase Invoice from the dropdown
-4. Adjust the quantities to what you're returning (e.g., 2 bags instead of 20)
+1. Save a PO first
+2. Select it from the dropdown (shows `PO-0001 • VendorName`)
+3. Items and vendor fill automatically
+4. Fill in Draft No, Draft Date, Draft Amount, Bank Account
 5. Save
 
 ---
 
-### 5. Purchase Return (Without Invoice)
+### Purchase Invoice
 
-**What is this?**
-Same idea as above — you're returning goods to a vendor — but this time you don't have or don't want to link it to a specific previous invoice. Maybe it's old stock, maybe the original invoice wasn't in this system.
+**What it is:** The supplier's truck arrived, they handed you a paper bill. This is where you enter that bill.
+
+**Tricky points:**
+- Link to the PO if you have one → vendor and items auto-fill from the PO
+- Enter the supplier's bill number in Vendor Bill No (this is their number, not yours)
+- Enter Paid Amount if you paid cash on delivery
+- `PI-0001` is your internal tracking number; the supplier's bill number is stored separately
 
 **Try it:**
-1. Select the vendor
-2. Manually add the return items
-3. Save
+1. Create a PO first if you have one
+2. Select the PO → vendor and items fill
+3. Enter Vendor Bill No, Bill Date, Paid Amount
+4. Save → `PI-0001`
 
 ---
 
-### 6. Sales Invoice
+### Purchase Return (With Invoice)
 
-**What is this?**
-You're selling goods to a customer. A shopkeeper comes to your farm or orders from your salesman. You create this record to document the sale.
+**What it is:** Goods arrived, you entered the Purchase Invoice, but some goods were damaged or wrong. You're sending them back.
 
-**Who uses it:** Data entry person, salesman, or owner.
-
-**When:** When a sale happens — either at the farm gate or when your salesman returns with orders from his route.
-
-**Key fields:**
-- Customer: who are you selling to
-- Town / Sector: where the customer is located
-- Salesman: which of your salesmen made this sale
-- Prev Debit: how much this customer already owed you before this sale. The system adds it to the total so you can see the full outstanding balance.
-- Paid Amount: how much the customer paid right now (the rest becomes their balance)
-- Line items: what products, how many packs, at what price
-
-**Try it:**
-1. Pick the customer
-2. Pick the salesman
-3. Add items in the line entry row — pick a product, enter Qty(P), click **Add**
-4. Enter Paid Amount if they paid something now
-5. Click **Pending** to save as a draft
-6. Click **Records**, toggle Pending, tap it — loads back
-7. Click **Save** → see `SI-0001` badge and the totals
+**Tricky points:**
+- "With Invoice" means you link this return to a specific PI already in the system
+- Select the PI → vendor and items fill automatically
+- Reduce quantities to what you're actually returning
+- The system validates that return qty ≤ original PI qty — you cannot return more than was received
 
 ---
 
-### 7. Sales Return (With Invoice)
+### Purchase Return (Without Invoice)
 
-**What is this?**
-A customer is bringing back goods they bought from you. You have the original Sales Invoice in the system. You use "With Invoice" when you know exactly which sale to link the return against.
+**What it is:** Same — returning goods to a vendor — but without linking to a prior invoice.
 
-**Who uses it:** Data entry person when a customer returns goods.
-
-**Key fields:**
-- Sales Invoice: pick which of your Sales Invoices the customer is returning from
-- Full Return button: click this if the customer is returning everything from that invoice — quantities fill automatically
-- To Main Store: turn this on if the returned goods go back to your main stock
-
-**What fills automatically:** When you pick the Sales Invoice, the customer name, salesman, and original quantities appear. You can adjust quantities if it's a partial return.
-
-**Try it:**
-1. Save a Sales Invoice first
-2. Open Sales Return (With Invoice)
-3. Pick the Sales Invoice from the dropdown
-4. If partial return: reduce the return quantities
-5. If full return: click **Full Return**
-6. Save
+**When to use:** Old stock, goods received outside this system, or when you just want a clean return entry without the linkage.
 
 ---
 
-### 8. Sales Return (Without Invoice)
+### Sales Invoice
 
-**What is this?**
-A customer is returning goods but you're not linking it to a specific old invoice. Maybe the sale was done outside the system, or you just want a simple return entry.
+**What it is:** You sold goods to a customer. This records the sale.
+
+**Tricky points:**
+- When you select a **customer**, the Town, Sector, and Salesman auto-fill from the customer's record
+- If the customer has an active **Discount Scheme**, the discount auto-fills too (Disc2% for percentage schemes, Spc Disc for flat schemes)
+- `Prev Debit` = what the customer already owed you. The system adds it to the Total Payable so you see the full picture
+- `Paid Amount` = cash they paid now. The rest becomes their open balance
+- **Pending** = save as a draft when you're not 100% sure of quantities or prices
+
+**Line item entry:**
+1. Select product → packing name, pack size, sale price, and tax % fill automatically from product settings
+2. Enter Qty(P) and/or Qty(L)
+3. Adjust price if needed
+4. Click **Add**
 
 **Try it:**
-1. Select the customer and salesman
-2. Add the returned products manually
-3. Toggle **To Main Store** if the stock goes back
-4. Save
+1. Select customer → town/sector/salesman/discount fill
+2. Add line items
+3. Enter Paid Amount
+4. Click **Pending** to draft, or **Save** to finalize
 
 ---
 
-### 9. Stock Issue to Salesman
+### Sales Return (With Invoice)
 
-**What is this?**
-Your salesman is going out on his route to sell. Before he leaves, you hand over physical stock to him — bags of feed, bottles of medicine, etc. This screen records what stock you gave him.
+**What it is:** Customer is returning goods, and you have the original Sales Invoice in the system.
 
-**Who uses it:** Warehouse or store person when salesman picks up stock.
+**Tricky points:**
+- Select the Sales Invoice → customer, salesman, and original quantities fill
+- **Full Return button** → sets all return quantities to the full original sale minus previous returns. Use when customer is returning everything.
+- The system validates: total returns (today + previous) cannot exceed original sale qty. If you already returned 5 bags from a 20-bag sale, the maximum for the next return is 15 bags.
+- `To Main Store` → turn this on so returned stock goes back to your main inventory
 
-**When:** Before the salesman leaves for his route.
+---
 
-**Real-world example:** Usman Ghani is going to Korangi today. You give him 10 bags of Finisher Feed and 5 bottles of NDV vaccine. You enter this here.
+### Sales Return (Without Invoice)
 
-**Key fields:**
-- Salesman: who are you issuing stock to
-- Items: which products, what packing, how many, at what cost (cost fills automatically from product settings)
-- Value: auto-calculated = quantity × cost
+**What it is:** Customer returning goods, no original invoice to link.
+
+---
+
+### Stock Issue to Salesman
+
+**What it is:** Your salesman is heading out on his route. You physically give him stock to sell. This records what you handed over.
+
+**Tricky points:**
+- Cost fills automatically from the product's purchase price in settings
+- When salesman returns, create a **Stock Return from Salesman** to record what came back
+- There is no automatic stock balance yet — these are document records
 
 **Try it:**
 1. Select salesman
-2. In the line entry row: pick a product, pick a packing, enter quantities, click **Add**
-3. Check that cost filled automatically
-4. Save → `STI-0001`
+2. Add items (product, packing, qty, cost auto-fills)
+3. Save → `STI-0001`
 
 ---
 
-### 10. Stock Return from Salesman
+### Stock Return from Salesman
 
-**What is this?**
-The salesman is back from his route. He sold some things, but not everything. The unsold stock comes back to your warehouse. This screen records what he returned.
+**What it is:** Salesman returned from his route with unsold goods.
 
-**Who uses it:** Warehouse person when salesman returns.
+**Tricky points:**
+- Link to the original Stock Issue using Original Issue ID (optional but recommended)
+- **Return All button** → loads the latest issue for this salesman and fills all items automatically
+- The system checks: return qty cannot exceed what was originally issued
+- Adjust quantities down if salesman only returned some items
 
-**Key behavior:** If you know which Stock Issue this return relates to, you can link it with "Original Issue ID". There is also a **Return All** button — it fetches the most recent stock issue for this salesman and fills in all items automatically so you just reduce quantities.
+---
+
+### Stock Expiry Invoice
+
+**What it is:** Goods in your warehouse have expired or got damaged. You're writing them off.
+
+**Tricky points:**
+- `Exp Qty` = quantity that expired
+- `Dam Qty` = quantity that was physically damaged
+- Cost fills from the product's purchase price — this is the financial impact
+- Use this when the goods cannot be sold and cannot be claimed from anyone
+
+---
+
+### Expiry Claim From Customer
+
+**What it is:** A customer brings back expired/damaged goods and claims credit or replacement.
+
+**Two sections:**
+1. **Claim items** — what the customer returned (at what price you sold it to them)
+2. **Reply section** — how you're settling it:
+   - Toggle **Return Same Products** → add replacement items
+   - Or enter **Replied Amount** → you're settling with cash/credit
+
+---
+
+### Expiry Claim To Vendor
+
+**What it is:** You received a customer claim for expired goods. Now you pass that claim back to your supplier.
+
+Same screen as above but select Vendor instead of Customer.
+
+---
+
+### Stock Wastage Invoice
+
+**What it is:** Stock was wasted internally — spillage, breakage, used internally. Not claimable from anyone.
+
+---
+
+## Part 8 — The Transactions Tab
+
+---
+
+### Recovery Invoice
+
+**What it is:** Your salesman collected cash from customers today. He's back with money and a list of who paid what. This is where you record that collection.
+
+**Tricky points:**
+- Select the salesman first
+- For each customer entry: pick the customer, pick which Sales Invoice they're paying against
+- **Sale Value fills automatically** from the actual invoice — the system verifies this server-side so it can never be entered wrong
+- `Receivable` = what was still outstanding on that invoice
+- `Received` = cash the salesman actually collected
+- `Discount` = any discount given to settle the account
+- `Final Credit` = Received + Discount (auto-calculated)
+- The system validates: Total recovered against any invoice cannot exceed the invoice value
 
 **Try it:**
-1. Select the salesman
-2. Optionally select the original issue from the dropdown (or click Return All)
-3. Adjust quantities to what actually came back
-4. Save → `STR-0001`
-
----
-
-### 11. Stock Expiry Invoice
-
-**What is this?**
-Some goods in your warehouse have expired or got physically damaged. They're no longer sellable. This screen is how you write them off — recording that this stock is gone.
-
-**Who uses it:** Warehouse person or owner doing a stock check.
-
-**Real-world example:** You find 3 bottles of vaccine that expired last month and 2 bags of feed that got wet and can't be sold. You record them here.
-
-**Line fields:**
-- Exp Qty (P/L): quantity that expired
-- Dam Qty (P/L): quantity that was damaged
-- Cost: auto-fills from the product's purchase price — this is the value you're writing off
-
-**Try it:**
-1. Enter date
-2. Add products with their expired/damaged quantities
-3. Cost fills automatically — check the netValue at the bottom
-4. Save → `EXP-0001`
-
----
-
-### 12. Expiry Claim From Customer
-
-**What is this?**
-A customer comes back to you saying "the vaccines you sold me have expired, I want credit or replacement." This screen handles that claim from the customer's side.
-
-**Who uses it:** Accounts staff or owner when a customer complains about expired goods.
-
-**Two parts:**
-1. **Claim section:** what the customer is returning and claiming against (product, quantities, price)
-2. **Reply section (optional):** how you're settling it — either giving them replacement products or settling with a cash amount
-
-**Try it:**
-1. Select direction: "From Customer"
-2. Select the customer
-3. Add the claimed items (what they returned, at what price)
-4. If you're replacing the goods: toggle Return Same Products and add replacement items in the Reply section
-5. If you're settling by cash: enter the amount in Replied Amount
-6. Save → `EC-0001`
-
----
-
-### 13. Expiry Claim To Vendor
-
-**What is this?**
-Now you've received a claim from your customer for expired goods. You go back to your supplier and make the same claim against them — "you sold me expired goods, I want credit."
-
-Same screen as above but you select Vendor instead of Customer.
-
----
-
-### 14. Stock Wastage Invoice
-
-**What is this?**
-Stock got damaged or wasted internally — not because of a customer complaint and not something you can claim back from the vendor. It's just gone. Spillage, breakage, internal usage, etc.
-
-**Real-world example:** A bag of feed fell off the truck and split open. 2 litres of medicine were used for farm sanitization. You record this here so your stock numbers stay accurate.
-
-Same layout as Stock Expiry. Save → `WAS-0001`
-
----
-
-## Transactions Tab — Screen by Screen
-
----
-
-### 1. Recovery Invoice
-
-**What is this?**
-Your salesman collected cash from customers during his route. He comes back to you with money and a list of which customers paid what. This screen is where you record that.
-
-**Who uses it:** Salesman or accounts person when recording daily collections.
-
-**Real-world flow:** Usman Ghani collected Rs 30,000 from Al-Madina Poultry against their Sales Invoice SI-0001, and Rs 15,000 from Bismillah Murgh against SI-0002. He also gave Bismillah a Rs 500 discount. You record all of this here in one Recovery Invoice.
-
-**Key fields per customer row:**
-- Customer: who paid
-- Sale ID: which of their sales invoices they are paying against
-- Sale Value: the full amount on that invoice (fills automatically when you pick the SI)
-- Receivable: how much was still outstanding on that invoice
-- Received: how much cash the salesman actually collected today
-- Discount: any discount you agreed to give
-- Final Credit: Received + Discount (auto-calculated)
-- Narration: a note if needed
-
-**Try it:**
-1. Select the salesman
-2. In the entry row: pick a customer, pick their Sales Invoice, enter Received amount, click **Add**
-3. Repeat for each customer who paid
-4. Check the totals at the bottom
+1. Select salesman
+2. In the entry row: pick customer → pick Sales Invoice → enter Received → click **Add**
+3. Repeat for each customer
+4. Check totals at the bottom
 5. Save → `REC-0001`
 
 ---
 
-### 2. Recovery (Invoice Wise)
+### Recovery (Invoice Wise)
 
-**What is this?**
-Same idea as Recovery Invoice but with a more detailed breakdown. Instead of just one row per customer, this screen shows each customer's individual invoices so you can record payments against specific invoices.
+**What it is:** Detailed recovery tracking — shows each customer's individual invoices so you can record payment per invoice.
 
-**Who uses it:** Accounts person for detailed monthly recovery tracking.
-
-**The Populate button is how you start.** Choose the salesman and click **Populate**. The system loads all customers assigned to that salesman along with their outstanding invoices. You then go through each one and enter what was received and any discounts.
-
-**Try it:**
-1. Select salesman, optionally filter by Town or Sector
-2. Click **Populate** — customer rows appear with invoice sub-tables
-3. For each invoice, enter Received amount and any Discount
-4. Save
+**Tricky point:** The screen is blank until you click **Populate**. Choose the salesman (and optionally filter by town/sector) then click Populate — the system loads all outstanding invoices for that salesman's customers.
 
 ---
 
-### 3. Recovery (Receivable Wise)
+### Recovery (Receivable Wise)
 
-**What is this?**
-Similar to Invoice Wise but simpler — instead of showing individual invoices, it shows one row per customer with their total outstanding balance. You record the total collected from each customer without specifying which invoice.
+**What it is:** Simpler recovery — one row per customer showing their total outstanding balance. No invoice-level breakdown.
 
-**Use this when:** You want a quick overview rather than an invoice-by-invoice breakdown.
-
-**Try it:**
-1. Select salesman, click **Populate**
-2. For each customer row, enter how much was received
-3. Save
+Same process — select salesman, click **Populate**, enter received amounts.
 
 ---
 
-### 4. Salesman Cash Reconciliation
+### Salesman Cash Reconciliation
 
-**What is this?**
-At the end of the day (or week), you sit with your salesman and reconcile his cash. He collected X amount, spent Y on expenses (petrol, food), and deposited Z in the bank. This tells you exactly what should be in his pocket right now.
+**What it is:** End-of-day or end-of-week settlement with your salesman. Did the money he collected match what he deposited plus what he spent?
 
-**Who uses it:** Owner or accounts person at day-end or week-end.
-
-**Closing Balance formula:**
+**The formula the system calculates:**
 ```
-Opening Balance
-+ Cash collected from customers (from his Recovery Invoices)
-− His expenses (petrol, meals, etc.)
-− Cash he deposited to bank
-= What should be in his pocket right now
+Opening Balance (cash he had at start)
++ Total Cash Collected (from his Recovery Invoices)
+− His Expenses (petrol, food, etc.)
+− Cash He Deposited to Bank
+= Closing Balance (should be in his pocket right now)
 ```
 
-**Sections:**
-- **Opening Balance:** how much cash he had at the start
-- **Recovery Entries:** link to the Recovery Invoices from this period. Dropdown shows `REC-0001 • SalesmanName`
-- **Expense Entries:** petrol, tea, lunch, etc. with amounts
-- **Cash Deposited:** how much he deposited in the bank
-- **Closing Balance:** calculated automatically
+**Tricky points:**
+- Create the Recovery Invoices for this salesman first
+- Link them in the Recovery Entries section (dropdown shows `REC-0001 • SalesmanName`)
+- Add expense entries with descriptions and amounts
+- Enter how much he deposited to bank
+- Closing Balance calculates live — if it's negative, he deposited more than expected; positive means cash still with him
 
 **Try it:**
-1. Create Recovery Invoices for this salesman first
-2. Select salesman
-3. Enter opening balance
-4. Add recovery entries from the dropdown
-5. Add expense entries (description + amount)
-6. Enter cash deposited
-7. Verify closing balance makes sense
-8. Save → `SCR-0001`
+1. Create Recovery Invoices first
+2. Select salesman, set Opening Balance
+3. Add recovery entries from dropdown
+4. Add expense entries
+5. Enter Cash Deposited
+6. Check Closing Balance makes sense
+7. Save → `SCR-0001`
 
 ---
 
-### 5. Cash Receiving Voucher
+### Cash Receiving Voucher
 
-**What is this?**
-A formal accounting record of money coming in to your business. This is the proper double-entry bookkeeping record for cash received — as opposed to a Recovery Invoice which is more operational.
+**What it is:** A formal bookkeeping entry for money coming into the business. This is proper double-entry accounting.
 
-**Who uses it:** Accountant.
+**Tricky points:**
+- The Voucher No (`CRV-0001`) is auto-assigned and shown in a highlighted box — read-only
+- To add a line: type the account code → account name fills automatically → enter Credit amount → click **Add**
+- For a cash-receiving voucher, ALL lines must be Credit (no Debit allowed)
+- Use account codes from your Chart of Accounts in Settings
 
-**Real-world example:** You received Rs 45,000 cash. In proper accounting you debit Cash (money came in) and credit Accounts Receivable (the customer's balance went down).
-
-**How account entry works:**
-1. Type the account code (e.g. `1001` for Cash in Hand)
-2. The account name fills automatically
-3. Enter the Credit amount (for a cash receiving voucher, all lines are Credit)
-4. Add narration if needed
-5. Click **Add**
-6. Repeat for each account line
-
-**The Voucher No** (`CRV-0001`) is auto-assigned and shown in yellow at the top. It's read-only.
-
-**Try it:**
-1. Enter today's date
-2. In the line entry row: type account code → name fills → enter Credit amount → click **Add**
-3. Add as many lines as needed
-4. Save → `CRV-0001`
+**Example entry:**
+- Credit `1001` (Cash in Hand) → Rs 45,000 "Cash received from recovery"
 
 ---
 
-### 6. Cash Payment Voucher
+### Cash Payment Voucher
 
-**What is this?**
-Formal record of money going out from your business. You paid a vendor, paid a salary, paid an expense. Same screen as Cash Receiving Voucher but all lines are Debit (money going out).
+**What it is:** Formal bookkeeping entry for money going out.
 
-**Real-world example:** You paid NutriPak Rs 200,000 against their invoice. Debit Accounts Payable (vendor balance goes down), Credit Bank Account (bank balance goes down).
+All lines must be Debit. Voucher No starts with `DBV-`.
 
----
-
-### 7. Journal Voucher
-
-**What is this?**
-A bookkeeping adjustment that isn't a simple cash-in or cash-out. You need to move amounts between accounts, book a salary expense, or make a correction.
-
-**Real-world example:** Booking April salaries. You debit Salary Expense (Rs 65,000) and credit Cash (Rs 65,000 goes out). The debit total must exactly equal the credit total — the app checks this and won't let you save if they don't match.
+**Example entry:**
+- Debit `2001` (Accounts Payable) → Rs 200,000 "Payment to NutriPak"
 
 ---
 
-### 8. Bank Cheque Issuing
+### Journal Voucher
 
-**What is this?**
-You wrote a cheque from your bank account to pay someone. This screen records the cheque details.
+**What it is:** A bookkeeping adjustment — neither purely cash in nor cash out. Moves amounts between accounts.
 
-**Who uses it:** Owner or accounts person when issuing payment cheques.
+**Critical rule:** The total of all Debit lines **must exactly equal** the total of all Credit lines. The system checks this and will not let you save if they don't balance.
 
-**Payee Type — who is the cheque for:**
-- **Vendor:** you're paying a supplier. Pick the vendor from the dropdown.
-- **Account:** you're transferring to or settling with an internal account (e.g. director's account). Pick the account.
-- **Other:** the payee is not in your system — type their name as free text.
+Voucher No starts with `JRV-`.
 
-**Post Dated:** turn this on if the cheque date is in the future and you don't want it cashed immediately.
+**Example entry (booking salaries):**
+- Debit `5002` (Salary Expense) → Rs 65,000
+- Credit `1001` (Cash in Hand) → Rs 65,000
+
+---
+
+### Bank Cheque Issuing
+
+**What it is:** You wrote a physical cheque from your bank account to pay someone. This records the cheque.
+
+**Payee Type:**
+- **Vendor** → paying a supplier (pick from vendor list)
+- **Account** → settling with an internal GL account (pick from accounts list)
+- **Other** → payee is not in your system (type their name)
+
+**Post Dated:** Turn on if the cheque date is in the future — you want the recipient to hold it, not cash it immediately.
 
 **Try it:**
 1. Enter Cheque No (the printed number on the physical cheque)
-2. Enter Cheque Date
-3. Select your Bank Account from the dropdown → Bank Account No fills automatically
-4. Select Payee Type → fill the matching field
-5. Enter Amount
-6. Save → `CHQ-0001`
+2. Select Bank Account → Account No fills automatically
+3. Select Payee Type and fill the corresponding field
+4. Enter Amount
+5. Save → `CHQ-0001`
 
 ---
 
-### 9. Bank Cheques Reconciliation
+### Bank Cheques Reconciliation
 
-**What is this?**
-Weeks later, you get your bank statement. Some cheques you issued have been cleared by the bank (cashed by the recipient). Some may have bounced. Some you cancelled. This screen lets you update the status of each cheque.
+**What it is:** Your bank statement arrived. Some cheques cleared, some bounced. Update their status here.
 
-**Who uses it:** Accounts person during bank statement reconciliation.
+**Tricky point:** This is a list screen — no form to fill. Press **Load** first.
 
-**This is a list screen — there is no form to fill. Just filters and actions.**
-
-**Try it:**
-1. Select your bank account
-2. Set date range to when you issued the cheques
-3. Click **Load** — all issued cheques appear in a table
-4. For each cheque, click:
+1. Select bank account and date range
+2. Click **Load** → all issued cheques appear
+3. Per cheque:
    - **Clear** = bank honored it, money left the account
-   - **Bounce** = bank returned it, payment failed
-   - **Cancel** = you cancelled the cheque before it was used
+   - **Bounce** = bank returned it, cheque failed
+   - **Cancel** = cheque was cancelled
 
 ---
 
-### 10. Cash Deposit in Bank
+### Cash Deposit in Bank
 
-**What is this?**
-You're taking physical cash from your drawer/safe and depositing it at the bank. You fill in a deposit slip at the bank counter and record it here.
+**What it is:** Physical cash from your drawer going into your bank account.
 
-**Fields:**
-- Bank Account: which of your bank accounts you're depositing into
-- Deposit Slip No: the slip number the bank gives you
-- Amount: how much you're depositing
-- From Account: which internal account the cash is coming from (usually "Cash in Hand")
+**Fields:** Bank Account, Deposit Slip No (from bank counter), Amount, From Account (usually Cash in Hand)
 
 ---
 
-### 11. Cheque Deposit in Bank
+### Cheque Deposit in Bank
 
-**What is this?**
-A customer gave you a cheque and you're depositing it in your bank account. Same as cash deposit but for a cheque, so you also need to record the cheque details.
+**What it is:** A cheque you received from a customer, depositing it into your bank.
 
-**Extra fields:**
-- Cheque No: the number on the customer's cheque
-- Cheque Date: the date written on the cheque
-- Drawer Name: whose cheque it is (usually the customer's name)
-- Drawer Bank Name: which bank issued the cheque
+**Extra fields vs cash:** Cheque No, Cheque Date, Drawer Name (customer name), Drawer Bank Name.
 
 ---
 
-### 12. Deposit Confirmation
+### Deposit Confirmation
 
-**What is this?**
-After your bank processes the deposit, your accounts team confirms it in the system — meaning "yes, we verified this deposit actually went through."
+**What it is:** After you've deposited and your accounts team has verified it actually went through, they confirm it here.
 
-**This is a list screen, not a form.**
+**Tricky point:** Press **Load** first. Only unconfirmed deposits appear.
 
-**Try it:**
-1. Create some deposits first (cash or cheque)
-2. Select the bank account and date range
-3. Click **Load** → unconfirmed deposits appear
-4. Click **Confirm** on each one that has been verified
+1. Set bank account, date range, deposit type
+2. Click **Load**
+3. Click **Confirm** per verified deposit
 
 ---
 
-### 13. Deposit Reconciliation
+### Deposit Reconciliation
 
-**What is this?**
-You're looking at your bank statement. Each line on the statement has a reference number. You match each deposit in the system to a line on the bank statement. This is how you confirm the books match the bank.
+**What it is:** Matching your system deposits to your actual bank statement line-by-line.
 
-**This is a list screen, not a form.**
-
-**Try it:**
-1. Confirm deposits first (screen 12)
-2. Select bank account and type the year-month (e.g. `2026-04` for April 2026)
-3. Click **Load** → all deposits for that month appear
-4. For each deposit, type the bank statement reference in the `Stmt Ref` column
-5. Click **Reconcile** for that row
-6. Click **Save Changes** when done
+**Tricky point:** Press **Load** first. Enter the bank statement reference in `Stmt Ref` column, then click **Reconcile** per row.
 
 ---
 
-### 14. Voucher Confirmation
+### Voucher Confirmation
 
-**What is this?**
-A manager or senior accounts person reviews vouchers that were entered by a junior and officially confirms them. This is a control step so that not every voucher automatically becomes final without review.
+**What it is:** A senior/manager reviews and officially approves vouchers created by junior staff.
 
-**This is a list screen, not a form.**
-
-**Try it:**
-1. Create and save some vouchers first
-2. Select voucher type and date range
-3. Click **Load** → unconfirmed vouchers appear
-4. Click any row to expand and see the account lines
-5. Click **Confirm** for each voucher you approve
+**Tricky point:** Press **Load** first. Expand any row to see the account lines before confirming.
 
 ---
 
-### 15. Post Dated Recovery Promise
+### Post Dated Recovery Promise
 
-**What is this?**
-A customer tells you "I'll pay you on May 5th — here's my cheque." The cheque date is in the future. You record this promise now so you don't forget and so you can track it.
+**What it is:** A customer gives you a post-dated cheque. You record the promise now and process it when the date arrives.
 
-**Who uses it:** Salesman or accounts person.
-
-**Real-world example:** Hassan Poultry gives your salesman a cheque for Rs 92,000 dated May 5th. You record it here. On or after May 5th, you present the cheque to the bank. When it clears, you process it in Promises Processing (screen 17).
-
-**Linked invoices section:** You can link this promise to specific Sales Invoices it's meant to cover. The footer shows the total of the linked invoices vs. the promise amount so you know if it covers everything.
+**Tricky points:**
+- Promise Date = the date written on the cheque (in the future)
+- You can link the promise to specific Sales Invoices to track which invoices this cheque covers
+- The footer shows the total of linked invoices vs the promise amount — so you know if it covers everything or there's a shortfall
+- Processing happens later in **Promises Processing**
 
 **Try it:**
 1. Select customer and salesman
-2. Set Promise Date to when the cheque is dated
+2. Set Promise Date to cheque date
 3. Enter Cheque No, Bank Name, Amount
-4. Optionally: add the Sales Invoices this cheque is meant to pay
+4. Optionally add the Sales Invoices this covers
 5. Save → `PP-0001`
 
 ---
 
-### 16. Post Dated Payment Promise
+### Post Dated Payment Promise
 
-**What is this?**
-Your commitment to pay a vendor in the future. You tell the vendor "I'll give you a cheque for Rs 120,000 next Thursday." This records your promise.
+**What it is:** Your promise to pay a vendor by a future date.
 
-Same screen as Recovery Promise but for vendors instead of customers. Links to Purchase Invoices instead of Sales Invoices.
-
----
-
-### 17. Promises Processing
-
-**What is this?**
-The promises are due. Cheques were presented to the bank. Now you update the status of each promise.
-
-**This is a list screen, not a form.**
-
-**Try it:**
-1. Create some promises first
-2. Set Type = Recovery, set Due Date = today (or a past date), Status = Pending
-3. Click **Load** → all due promises appear
-4. For each one:
-   - **Clear** = cheque went through, payment received
-   - **Bounce** = cheque was returned by bank, payment failed
-   - **Cancel** = the promise was cancelled for any reason
+Same as Recovery Promise but vendor-facing. Links to Purchase Invoices.
 
 ---
 
-## Full Workflow — Start to Finish
+### Promises Processing
 
-If you want to test the full cycle of a sale from purchase to recovery, do it in this order:
+**What it is:** The promise date has arrived. You present the cheque to the bank. Now update the status.
 
-1. **Purchase Order** — you order 20 bags of feed from your supplier
-2. **Send Purchase Order** — you send the PO to the supplier with your bank draft
-3. **Purchase Invoice** — goods arrive, you enter the supplier's bill
-4. **Sales Invoice** — you sell feed to your customer, salesman collects partial payment
-5. **Stock Issue to Salesman** — salesman takes some products out to sell on his route
-6. **Recovery Invoice** — salesman comes back, you record what he collected
-7. **Salesman Cash Reconciliation** — you reconcile his cash at day end
-8. **Cash Receiving Voucher** — formal accounting entry for the cash received
-9. **Bank Cheque Issuing** — you issue a cheque to the supplier for their payment
-10. **Cash Deposit in Bank** — you deposit the collected cash
-11. **Deposit Confirmation** — accounts team confirms the deposit went through
-12. **Deposit Reconciliation** — you match it against your bank statement
-13. **Bank Cheques Reconciliation** — supplier's cheque cleared, you mark it cleared
-14. **Post Dated Recovery Promise** — customer gives you a cheque for next month
-15. **Promises Processing** — next month, cheque clears, you mark it done
+**Tricky point:** Press **Load** first. Filter by type and due date.
+
+- **Clear** = cheque went through, payment received/sent
+- **Bounce** = cheque was returned by bank
+- **Cancel** = promise cancelled for any reason
 
 ---
 
-## Practical Tips
+## Part 9 — The Poultry Tab
 
-- **When a screen opens blank** — that's normal. Every screen starts fresh. Use **Records** to open existing ones.
-- **The Records button is your friend** — on any form screen, click Records and search. Type the customer name, the document number, or a date. Every saved record is findable.
-- **Filter-table screens need Load first** — screens like Bank Cheques Reconciliation, Deposit Confirmation, Deposit Reconciliation, Voucher Confirmation, and Promises Processing will be blank until you set filters and click **Load**.
-- **Linked documents** — screens like Send Order, Purchase Invoice, Purchase Return, and Sales Return let you link to a previously saved document. When you pick that linked document from the dropdown, the relevant fields fill automatically. Always create the source document first.
-- **Pending = draft** — use Pending when you're not sure yet. You can find it via Records and save it final later.
-- **Totals calculate live** — as you add line items or change discount/tax fields, the totals at the bottom update immediately so you can see the effect before saving.
+---
+
+### Setup (Do This First)
+
+Before placing a flock:
+
+1. **Feed Schedules** — create a feeding schedule with stages (Pre-Starter, Starter, Grower, Finisher). Each stage has a day range and daily feed per bird.
+2. **Vaccine Schedules** — create a vaccination protocol. Each vaccination has a day number and the vaccine product.
+
+---
+
+### Flocks
+
+**What it is:** A batch of birds placed in a shed. This is the core of the Poultry module.
+
+**Tricky points:**
+- `Placement Date` = the day the chicks arrived in the shed
+- `Initial Birds Count` = how many chicks you received
+- `Current Birds Count` = automatically updated as birds are sold or lost to mortality
+- Link to Feed and Vaccine Schedules to use those protocols
+- Status changes from `active` → `sold` automatically when all birds are sold
+
+---
+
+### Flock Feeds
+
+**What it is:** Daily feed consumption record for a flock.
+
+The system compares your actual feed consumed against the standard from the Feed Schedule and shows the variance. If you consumed significantly more than standard, it flags it red.
+
+---
+
+### Flock Vaccines
+
+**What it is:** Records of vaccinations given to a flock.
+
+---
+
+### Chicken Invoices
+
+**What it is:** Selling live chickens from a flock to a customer.
+
+**Tricky points:**
+- `Birds Count` cannot exceed `Current Birds Count` in the flock — the system blocks this
+- When you save, the flock's Current Birds Count automatically decreases
+- When all birds are sold, the flock status changes to `sold` automatically
+- `Sale Type`: live_weight (price per kg of live bird), dressed_weight (price per kg of dressed/cleaned bird), per_bird (flat price per bird)
+
+**Accounting Integration toggles** (new feature):
+- **Create Sales Invoice** → when enabled, the system automatically creates a Sales Invoice in the Invoicing module using your configured Chicken Product. Requires Posting Config to have a Chicken Product set.
+- **Post to Ledger** → when enabled, the system automatically creates accounting ledger entries (Dr Accounts Receivable, Cr Sales Revenue, and Dr Cash if advance received). Requires Posting Config to have AR and Sales Revenue accounts set.
+
+These toggles exist both in the flock detail view and in the standalone Chicken Invoices screen.
+
+---
+
+## Part 10 — Tricky Business Logic to Know
+
+### 10.1 Return Quantity Cannot Exceed Original
+
+When creating a Sales Return (With Invoice), the system queries all previous returns for that same sales invoice and product combination. If previous returns + current return would exceed the original sale quantity, the system rejects the save with an error message.
+
+Example: Sold 20 bags. Already returned 5 bags last week. Maximum return today = 15 bags.
+
+### 10.2 Recovery Cannot Exceed Invoice Value
+
+When you select a Sales Invoice in a Recovery Invoice and try to recover more than the invoice total, the system rejects it. The sale value is server-verified — the system fetches the actual invoice from the database rather than trusting whatever was displayed on screen.
+
+### 10.3 Discount Scheme Auto-Apply
+
+When you select a customer on the Sales Invoice screen, the system reads their Discount Scheme and auto-fills:
+- Percentage discount → fills Disc2% field
+- Flat discount → fills Spc Disc field
+
+This only happens if the scheme is currently active (within Valid From / Valid To dates). If the scheme has expired, no discount is applied and you'll need to enter it manually.
+
+### 10.4 Product Auto-Populate
+
+When you add a line item on any invoice:
+- **Sales Invoice / Sales Return** → uses the product's Sale Packing and Sale Price 1
+- **Purchase Order / Purchase Invoice / Purchase Return** → uses the product's Purchase Packing and Purchase Price
+
+The packing quantity, packing name, unit name, and tax percentage all fill automatically.
+
+### 10.5 Total Calculation
+
+The system calculates totals on the server after save. On screen, you see a live preview that updates as you type, but the official stored values come from the server after saving.
+
+```
+Gross = sum of all (qty × price) per line
+Line Discount = line gross × (disc% / 100) per line
+Invoice Discounts = gross × (Disc2% / 100) + sum of all line discounts
+Invoice Value = gross − all discounts
+Sales Tax = sum of (line net × tax%) per line
+Net Value = invoice value + sales tax + F.Tax + Expense + SED − Spc Disc
+Total Payable = net value + Prev Debit (for sales) or Prev Credit (for purchases)
+Remaining Balance = Total Payable − Paid Amount
+```
+
+### 10.6 Pending vs Saved
+
+Any document saved as **Pending** is a draft. It appears in the Pending toggle inside the Records browser. Pending documents are real records — they're saved in the database — but they're marked as incomplete. When you're ready to finalize, reopen via Records and click **Save**.
+
+### 10.7 Stock Issue Return Quantity Check
+
+When creating a Stock Return from Salesman linked to an original Stock Issue, the system checks that the return quantities do not exceed what was originally issued per product. You cannot return 10 bags if only 8 were issued.
+
+### 10.8 Town and Sector Must Exist
+
+When saving a Sales Invoice, the Town and Sector fields are validated against your Settings. If you enter a town that doesn't exist in Settings, the save will be rejected. Always set up towns and sectors in Settings before creating invoices.
+
+---
+
+## Part 11 — Full Workflow from Purchase to Recovery
+
+This is the real-world sequence for a complete sale cycle:
+
+**Day 1 — Order and Payment:**
+1. Create **Purchase Order** for feed from NutriPak
+2. Create **Send Purchase Order** with your bank draft details
+
+**Day 3 — Goods Arrive:**
+3. Create **Purchase Invoice** (link to PO) — goods received and billed
+
+**Day 5 — Salesman's Route Day:**
+4. Create **Stock Issue to Salesman** — give Usman 10 bags + 5 vaccine bottles
+5. Create **Sales Invoice** for each customer the salesman visits
+   - Customer discount auto-applies if set up
+   - Mark as Pending if uncertain, finalize at end of day
+
+**Day 5 — Salesman Returns:**
+6. Create **Stock Return from Salesman** for unsold items
+7. Create **Recovery Invoice** — record what cash Usman collected from each customer
+8. Create **Salesman Cash Reconciliation** — balance Usman's opening cash vs collections vs expenses vs deposit
+
+**Day 6 — Banking:**
+9. Create **Cash Deposit in Bank** — deposit Usman's collected cash
+10. Create **Bank Cheque Issuing** — issue cheque to NutriPak for their bill
+11. Create **Cash Receiving Voucher** — formal accounting entry for cash in
+12. Create **Cash Payment Voucher** — formal accounting entry for vendor payment
+
+**Day 7 — Bank Statement:**
+13. **Deposit Confirmation** — confirm yesterday's deposit went through
+14. **Deposit Reconciliation** — match deposit to bank statement line
+15. **Bank Cheques Reconciliation** — mark NutriPak's cheque as cleared
+
+**Month End:**
+16. **Voucher Confirmation** — manager reviews and approves all vouchers
+17. **Recovery (Invoice Wise)** — detailed monthly recovery report
+
+**When a Customer Gives a Post-Dated Cheque:**
+18. Create **Post Dated Recovery Promise**
+19. On the cheque date: **Promises Processing** → mark as Clear when bank honors it
+
+---
+
+## Part 12 — Practical Tips
+
+- **Always create source documents first.** Send Order needs a PO. Purchase Invoice can link to a PO. Sales Return links to a Sales Invoice. Recovery Invoice links to a Sales Invoice. If the source doesn't exist yet, create it first.
+
+- **Use Pending liberally.** There is no penalty for saving as Pending. It's a draft you can always come back to. Use it whenever you're unsure about a quantity or price.
+
+- **Records is always your friend.** On any form screen, press Records. Type anything — a number, a name, a date — and every matching record appears. You never need to remember codes or dates.
+
+- **Filter-table screens need Load.** Bank Cheques Reconciliation, Deposit Confirmation, Deposit Reconciliation, Voucher Confirmation, and Promises Processing will show nothing until you set filters and press Load.
+
+- **Totals preview live.** As you type quantities and prices, the totals at the bottom update immediately. This is a preview only — the official totals are confirmed by the server after you save.
+
+- **Discount schemes expire.** If a customer had a 5% discount scheme that expired last month and you create an invoice today, the discount will NOT auto-fill. Check the scheme's Valid To date.
+
+- **Chicken Invoice integration needs configuration.** The Create Sales Invoice and Post to Ledger toggles on Chicken Invoices only work if you've set up Posting Config in Settings. Without it, the toggles have no effect.
+
+- **Two ID systems exist but you only see one.** The database has internal IDs (never shown to you). The app shows only business numbers like SI-0001. You search, open, print, and reference documents by their business numbers.

@@ -958,22 +958,33 @@ MultiProvider(
 ### 10.1 Standard invoicing screen layout
 
 ```
-Scaffold
-  AppBar (title = transaction name)
-  body: Column
-    ── Header Card ─────────────────────────────────────────
-       Row(wrap): date picker | customer/vendor lookup | salesman lookup | [other header fields]
-    ── Line Item Entry Card ─────────────────────────────────
-       Row: product lookup → auto-populates packing/price/tax | qty(P) | qty(L) | bonus | price | disc% | [Add] button
-    ── Items DataTable (Expanded, scrollable) ───────────────
-       Columns per transaction type (from Part 5)
-       Each row has an inline delete icon
-    ── Totals Footer Card (bottom-pinned) ───────────────────
-       Gross | Disc2% | Discounts | InvValue | S.Tax | F.Tax | Expense | TotalSED | SpcDisc | NetValue | TotalPayable
-    ── Action Bar ───────────────────────────────────────────
-       [Pending] [Clear] [Open Pending] [Open] [Print] [Remove] [Save] [Close]
-       (Send Order has NO Pending button — only Save/Clear/Print/Open/Remove/Close)
+Screen body
+  ── Header row: title + [New] button ──────────────────────
+  ── Search / filter row ───────────────────────────────────
+     Placeholder-only search field
+     Optional status chips / dropdown filters
+  ── Records DataTable (default landing state) ──────────────
+     User lands on all records first
+     Click row → opens create/edit dialog
+  ── Empty state / no matches state ────────────────────────
+
+Modal dialog (fixed desktop size, mobile-safe fallback)
+  ── Title bar with business ID badge ──────────────────────
+  ── Scrollable form body ──────────────────────────────────
+     Header Card
+     Line Item Entry Card
+     Items DataTable
+     Totals / summary sections
+  ── Action Bar ────────────────────────────────────────────
+     [Pending] [Clear] [Print] [Remove] [Save] [Close]
+     (Send Order has NO Pending button)
 ```
+
+Fixed dialog rule:
+- Desktop/tablet entry dialogs should use one consistent fixed-size shell
+- Use internal scrolling for overflow instead of letting the dialog grow arbitrarily
+- Keep header and footer stable while the form body scrolls
+- Mobile may use edge-to-edge fallback sizing when needed
 
 ### 10.2 Product auto-populate rule (CRITICAL)
 
@@ -984,34 +995,46 @@ When user selects a product on a line item:
 ### 10.3 Voucher screen layout
 
 ```
-Scaffold / AppBar
-  Voucher No (auto-generated, read-only, yellow background) | Voucher Date
-  Account entry row: Account No | Account Name (auto-lookup) | Debit | Credit | Narration | [Add]
-  Lines DataTable (Expanded)
+List-first screen
+  Search field
+  Voucher records table
+  Row click opens dialog
+
+Fixed-size voucher dialog
+  Voucher No badge | Voucher Date
+  Account entry row: Account No | Account Name (auto-lookup) | Debit | Credit | Narration | [Add/Update]
+  Lines DataTable
     credit voucher: Account No | Account Name | Credit | Narration
     debit voucher: Account No | Account Name | Debit | Narration
     journal voucher: Account No | Account Name | Debit | Credit | Narration
   Totals bar: Totals: [debitSum] [creditSum]
-  Actions: [Save] [Clear] [Open] [Print] [Remove] [Close]
+  Actions: [Save] [Clear] [Print] [Remove] [Close]
 ```
 
 ### 10.4 Recovery screen layout
 
 ```
-Header: Recovery ID | Date | Salesman (lookup) | Town | Sector | [Show SM in Narration toggle] | [Populate]
-Customer table: ID | Customer Name | Sector | Receivable | Received | Discount | Balance | Narration
-(Invoice Wise only) Sub-table per customer: Sale ID | Date | InvValue | Adjusted | Receivable | Received | Discount | Balance | Narration
-Footer: Recovery Salesman | Net Received | Discount | Gross Recoveries
-Actions: [Save] [Clear] [Open] [Remove] [Close]
+List-first screen
+  Search field
+  Recovery records table
+  Row click opens dialog
+
+Fixed-size recovery dialog
+  Header: Recovery ID | Date | Salesman (lookup) | Town | Sector | [Show SM in Narration toggle] | [Populate]
+  Customer table: ID | Customer Name | Sector | Receivable | Received | Discount | Balance | Narration
+  (Invoice Wise only) Sub-table per customer: Sale ID | Date | InvValue | Adjusted | Receivable | Received | Discount | Balance | Narration
+  Footer: Recovery Salesman | Net Received | Discount | Gross Recoveries
+  Actions: [Save] [Clear] [Remove] [Close]
 ```
 
-### 10.5 Pending / Open flow (all standard screens)
+### 10.5 Pending / open flow (migrated standard screens)
 
 - **[Pending]** → `create(body.copyWith(status: 'pending'))` or `update(id, {status: 'pending'})`
-- **[Open Pending]** → show dialog with list from `controller.items.where(status == 'pending')`, user taps to load into form
-- **[Open]** → text field for ID → `fetchById(id)` → load into form
+- **default landing** → records list is already visible
+- **search / filters** → narrow by business ID, party name, date, and status where applicable
+- **row click** → open that record in the fixed-size dialog
 - **[Save]** → `create/update(body.copyWith(status: 'saved'))`
-- **[Clear]** → reset all form fields, generate new sequential ID
+- **[Clear]** → reset all form fields inside the dialog
 - **[Remove]** → confirmation dialog → `deleteItem(id)`
 - **[Print]** → show SnackBar "Print not yet implemented"
 - **[Close]** → `Navigator.pop(context)`

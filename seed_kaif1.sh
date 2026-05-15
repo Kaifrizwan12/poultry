@@ -7,8 +7,8 @@
 set -uo pipefail
 
 BASE_URL="http://localhost:3000/api/v1"
-EMAIL="${SEED_EMAIL:-sufi@gmail.com}"
-PASSWORD="${SEED_PASSWORD:-Sufi125*}"
+EMAIL="${SEED_EMAIL:-kaka@gmail.com}"
+PASSWORD="${SEED_PASSWORD:-Kaka125*}"
 TODAY=$(date +%Y-%m-%d)
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'

@@ -12,6 +12,23 @@ class AppTheme {
   static const double sidebarWidthCollapsed = 60;
   static const double inputRadius = 10;
 
+  // ── Form field standard widths ─────────────────────────────────────────────
+  /// Short: dates, short numbers, codes
+  static const double fieldS = 150.0;
+  /// Medium: names, dropdowns, IDs
+  static const double fieldM = 200.0;
+  /// Large: narration, long text
+  static const double fieldL = 260.0;
+
+  // ── DataTable density ──────────────────────────────────────────────────────
+  static const double tableColSpacing  = 16.0;
+  static const double tableHMargin     = 12.0;
+  static const double tableRowMin      = 30.0;
+  static const double tableRowMax      = 36.0;
+  static const double tableHeadingH    = 36.0;
+  static const double dialogDesktopWidth = 1180.0;
+  static const double dialogDesktopHeight = 760.0;
+
   static const Color clayBg = Color(0xFFF8F2EA);
   static const Color claySurface = Color(0xFFF0E4D2);
   static const Color claySurface2 = Color(0xFFE6D4BC);
@@ -48,7 +65,7 @@ class AppTheme {
   static const Color shadowColor = Color(0x12000000);
   static const Color handleColor = Color(0xFFD3D8E3);
 
-  static Color get sidebarActive => terra400.withOpacity(0.15);
+  static Color get sidebarActive => terra400.withValues(alpha: 0.15);
   static Color get listTileDivider => softBorder;
   static Color get inputBorderColor => softBorder;
   static Color get inputFocusBorderColor => terra400;
@@ -123,14 +140,12 @@ class AppTheme {
       primary: terra400,
       surface: claySurface,
       error: dangerText,
-      background: clayBg,
     ).copyWith(
       secondary: sand400,
       tertiary: sand600,
       onPrimary: textOnDark,
       onSecondary: textOnDark,
       onSurface: textPrimary,
-      onBackground: textPrimary,
       outline: clayBorder,
       surfaceContainerHighest: claySurface2,
       surfaceContainerHigh: claySurface,
@@ -245,6 +260,13 @@ class AppTheme {
         prefixIconColor: textSecondary,
         suffixIconColor: textSecondary,
       ),
+      // Zero-width scrollbars prevent horizontal CLS when a vertical scrollbar
+      // would otherwise steal layout space and shift all content left.
+      scrollbarTheme: const ScrollbarThemeData(
+        thickness: WidgetStatePropertyAll(0),
+        thumbVisibility: WidgetStatePropertyAll(false),
+        trackVisibility: WidgetStatePropertyAll(false),
+      ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: textPrimary,
@@ -259,13 +281,13 @@ class AppTheme {
       checkboxTheme: CheckboxThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
         side: const BorderSide(color: clayBorder2, width: 1.5),
-        fillColor: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return terra400;
           }
           return clayBg;
         }),
-        checkColor: MaterialStateProperty.all(surfaceWhite),
+        checkColor: WidgetStateProperty.all(surfaceWhite),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(

@@ -1,67 +1,367 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
-import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
-import 'package:farm_mgt_auth/modules/settings/controllers/towns_controller.dart';
-import 'package:farm_mgt_auth/modules/settings/controllers/sectors_controller.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/customers_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/sectors_controller.dart';
+import 'package:farm_mgt_auth/modules/settings/controllers/towns_controller.dart';
 import 'package:flutter/material.dart';
-import '../widgets/record_browser_dialog.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/recovery_invoice_wise_controller.dart';
 import '../controllers/sales_invoice_controller.dart';
 import '../models/recovery_invoice_wise_model.dart';
+import '../widgets/invoicing_action_bar.dart';
+import '../widgets/invoicing_form_dialog.dart';
 
 class RecoveryInvoiceWiseScreen extends StatefulWidget {
   const RecoveryInvoiceWiseScreen({super.key});
 
   @override
-  State<RecoveryInvoiceWiseScreen> createState() => _RecoveryInvoiceWiseScreenState();
+  State<RecoveryInvoiceWiseScreen> createState() =>
+      _RecoveryInvoiceWiseScreenState();
 }
 
 class _RecoveryInvoiceWiseScreenState extends State<RecoveryInvoiceWiseScreen> {
+  final _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctrl = context.read<RecoveryInvoiceWiseController>();
+      if (ctrl.items.isEmpty) ctrl.fetchAll();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openForm({RecoveryInvoiceWiseModel? initial}) async {
+    final salesInvoiceCtrl = context.read<SalesInvoiceController>();
+    if (salesInvoiceCtrl.items.isEmpty) {
+      await salesInvoiceCtrl.fetchAll();
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(
+            value: context.read<RecoveryInvoiceWiseController>(),
+          ),
+          ChangeNotifierProvider.value(value: salesInvoiceCtrl),
+          ChangeNotifierProvider.value(
+            value: context.read<SalesmenController>(),
+          ),
+          ChangeNotifierProvider.value(value: context.read<TownsController>()),
+          ChangeNotifierProvider.value(value: context.read<SectorsController>()),
+          ChangeNotifierProvider.value(
+            value: context.read<CustomersController>(),
+          ),
+        ],
+        child: _RecoveryInvoiceWiseFormDialog(initial: initial),
+      ),
+    );
+  }
+
+  List<RecoveryInvoiceWiseModel> _visibleItems(
+    RecoveryInvoiceWiseController ctrl,
+  ) {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return ctrl.items;
+    return ctrl.items.where((item) {
+      return item.recoveryId.toLowerCase().contains(q) ||
+          item.salesmanName.toLowerCase().contains(q) ||
+          item.recoveryDate.toLowerCase().contains(q);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<RecoveryInvoiceWiseController>(
+      builder: (context, ctrl, _) {
+        final items = _visibleItems(ctrl);
+        return Padding(
+          padding: AppTheme.pagePadding(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Recovery (Invoice Wise)',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: () => _openForm(),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('New Recovery'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _searchCtrl,
+                decoration: AppTheme.inputDecoration(
+                  null,
+                  hintText: 'Search by recovery ID, salesman or date',
+                  prefixIcon: const Icon(Icons.search_outlined, size: 18),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          padding: EdgeInsets.zero,
+                          onPressed: () => setState(() => _searchCtrl.clear()),
+                        )
+                      : null,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+              if (ctrl.items.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.receipt_long_outlined,
+                          size: 52,
+                          color: AppTheme.textTertiary,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No invoice-wise recoveries yet.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(color: AppTheme.textSecondary),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () => _openForm(),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Create First Recovery'),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (items.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'No matches for "${_searchCtrl.text}".',
+                      style: const TextStyle(color: AppTheme.textSecondary),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: AppTheme.cardDecor,
+                      child: HorizontalScrollWheel(
+                        child: DataTable(
+                          headingRowColor:
+                              WidgetStateProperty.all(AppTheme.clayBg),
+                          columnSpacing: AppTheme.tableColSpacing,
+                          horizontalMargin: AppTheme.tableHMargin,
+                          dataRowMinHeight: AppTheme.tableRowMin,
+                          dataRowMaxHeight: AppTheme.tableRowMax,
+                          headingRowHeight: AppTheme.tableHeadingH,
+                          showCheckboxColumn: false,
+                          columns: const [
+                            DataColumn(label: Text('#')),
+                            DataColumn(label: Text('Recovery ID')),
+                            DataColumn(label: Text('Date')),
+                            DataColumn(label: Text('Salesman')),
+                            DataColumn(label: Text('Customers'), numeric: true),
+                            DataColumn(label: Text('Invoices'), numeric: true),
+                            DataColumn(label: Text('Received'), numeric: true),
+                            DataColumn(label: Text('Discount'), numeric: true),
+                          ],
+                          rows: items.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final item = entry.value;
+                            final customerCount =
+                                item.customerRecoveries.length;
+                            final invoiceCount = item.customerRecoveries
+                                .fold<int>(
+                                  0,
+                                  (sum, customer) =>
+                                      sum +
+                                      ((customer['invoices'] as List?)?.length ??
+                                          0),
+                                );
+                            return DataRow(
+                              color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.hovered)) {
+                                  return AppTheme.terra50;
+                                }
+                                return idx.isOdd
+                                    ? AppTheme.clayBg.withValues(alpha: 0.4)
+                                    : Colors.transparent;
+                              }),
+                              onSelectChanged: (_) => _openForm(initial: item),
+                              cells: [
+                                DataCell(Text('${idx + 1}')),
+                                DataCell(Text(item.recoveryId)),
+                                DataCell(Text(item.recoveryDate)),
+                                DataCell(Text(item.salesmanName)),
+                                DataCell(Text('$customerCount')),
+                                DataCell(Text('$invoiceCount')),
+                                DataCell(
+                                  Text(item.netReceived.toStringAsFixed(0)),
+                                ),
+                                DataCell(
+                                  Text(item.discount.toStringAsFixed(0)),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RecoveryInvoiceWiseFormDialog extends StatefulWidget {
+  const _RecoveryInvoiceWiseFormDialog({this.initial});
+
+  final RecoveryInvoiceWiseModel? initial;
+
+  @override
+  State<_RecoveryInvoiceWiseFormDialog> createState() =>
+      _RecoveryInvoiceWiseFormDialogState();
+}
+
+class _RecoveryInvoiceWiseFormDialogState
+    extends State<_RecoveryInvoiceWiseFormDialog> {
   String? _currentId;
   bool _isSaving = false;
 
-  final _recoveryDateCtrl = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
+  final _recoveryDateCtrl = TextEditingController(
+    text: DateTime.now().toIso8601String().substring(0, 10),
+  );
   String _salesmanId = '';
+  String _recoveryId = '';
   final _salesmanNameCtrl = TextEditingController();
   String _townId = '';
   String _sectorId = '';
   bool _showSalesmanInNarration = false;
 
-  // Customer rows: Map<customerId, List<invoiceEntry>>
   final Map<String, List<Map<String, dynamic>>> _customerInvoices = {};
-  final Map<String, TextEditingController> _narrationControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initial != null) _loadFromModel(widget.initial!);
+  }
 
   @override
   void dispose() {
-    _recoveryDateCtrl.dispose(); _salesmanNameCtrl.dispose();
-    for (final c in _narrationControllers.values) { c.dispose(); }
+    _recoveryDateCtrl.dispose();
+    _salesmanNameCtrl.dispose();
+    _disposeCustomerInvoices();
     super.dispose();
   }
 
-  void _clearForm() {
-    setState(() { _currentId = null; _salesmanId = ''; _townId = ''; _sectorId = ''; _showSalesmanInNarration = false; _customerInvoices.clear(); });
-    _recoveryDateCtrl.text = DateTime.now().toIso8601String().substring(0, 10); _salesmanNameCtrl.clear();
-    for (final c in _narrationControllers.values) { c.dispose(); }
-    _narrationControllers.clear();
+  void _disposeCustomerInvoices() {
+    for (final invoices in _customerInvoices.values) {
+      for (final invoice in invoices) {
+        (invoice['receivedCtrl'] as TextEditingController?)?.dispose();
+        (invoice['discountCtrl'] as TextEditingController?)?.dispose();
+        (invoice['narrationCtrl'] as TextEditingController?)?.dispose();
+      }
+    }
   }
 
-  void _loadFromModel(RecoveryInvoiceWiseModel m) {
-    setState(() { _currentId = m.id; _salesmanId = m.salesmanId; });
-    _recoveryDateCtrl.text = m.recoveryDate; _salesmanNameCtrl.text = m.salesmanName;
+  void _clearForm() {
+    _disposeCustomerInvoices();
+    setState(() {
+      _currentId = null;
+      _salesmanId = '';
+      _townId = '';
+      _sectorId = '';
+      _showSalesmanInNarration = false;
+      _customerInvoices.clear();
+      _recoveryId = '';
+    });
+    _recoveryDateCtrl.text = DateTime.now().toIso8601String().substring(0, 10);
+    _salesmanNameCtrl.clear();
+  }
+
+  List<Map<String, dynamic>> _invoiceRowsFromSaved(List<dynamic> invoices) {
+    return invoices.map<Map<String, dynamic>>((raw) {
+      final invoice = Map<String, dynamic>.from(raw as Map);
+      final received = (invoice['received'] as num?)?.toDouble() ?? 0;
+      final discount = (invoice['discount'] as num?)?.toDouble() ?? 0;
+      final invoiceValue = (invoice['invoiceValue'] as num?)?.toDouble() ?? 0;
+      return {
+        'saleId': invoice['saleId'],
+        'saleDisplayId': invoice['saleDisplayId'] ?? invoice['saleId'] ?? '',
+        'date': '${invoice['date'] ?? ''}',
+        'invoiceValue': invoiceValue,
+        'adjusted': (invoice['adjusted'] as num?)?.toDouble() ?? 0,
+        'receivable':
+            (invoice['receivable'] as num?)?.toDouble() ?? invoiceValue,
+        'receivedCtrl': TextEditingController(text: received.toStringAsFixed(2)),
+        'discountCtrl': TextEditingController(text: discount.toStringAsFixed(2)),
+        'narrationCtrl':
+            TextEditingController(text: '${invoice['narration'] ?? ''}'),
+      };
+    }).toList();
+  }
+
+  void _loadFromModel(RecoveryInvoiceWiseModel model) {
+    _disposeCustomerInvoices();
+    _currentId = model.id;
+    _salesmanId = model.salesmanId;
+    _recoveryId = model.recoveryId;
+    _townId = model.townId;
+    _sectorId = model.sectorId;
+    _showSalesmanInNarration = model.showSalesmanInNarration;
+    _recoveryDateCtrl.text = model.recoveryDate;
+    _salesmanNameCtrl.text = model.salesmanName;
+    _customerInvoices.clear();
+    for (final customer in model.customerRecoveries) {
+      final customerId = '${customer['customerId'] ?? ''}';
+      final invoices = (customer['invoices'] as List?) ?? const [];
+      _customerInvoices[customerId] = _invoiceRowsFromSaved(invoices);
+    }
   }
 
   void _populate() {
     final salesInvoices = context.read<SalesInvoiceController>().items;
-    final filtered = _salesmanId.isEmpty ? salesInvoices : salesInvoices.where((si) => si.salesmanId == _salesmanId).toList();
+    final filtered = _salesmanId.isEmpty
+        ? salesInvoices
+        : salesInvoices.where((invoice) => invoice.salesmanId == _salesmanId)
+            .toList();
+    _disposeCustomerInvoices();
     setState(() {
       _customerInvoices.clear();
-      for (final si in filtered) {
-        _customerInvoices.putIfAbsent(si.customerId, () => []).add({
-          'saleId': si.id, 'saleDisplayId': si.saleId, 'date': si.entryDate,
-          'invoiceValue': si.totalPayable, 'adjusted': 0.0, 'receivable': si.totalPayable,
-          'received': 0.0, 'discount': 0.0, 'balance': si.totalPayable, 'narration': '',
+      for (final sale in filtered) {
+        _customerInvoices.putIfAbsent(sale.customerId, () => []).add({
+          'saleId': sale.id,
+          'saleDisplayId': sale.saleId,
+          'date': sale.entryDate,
+          'invoiceValue': sale.totalPayable,
+          'adjusted': 0.0,
+          'receivable': sale.totalPayable,
           'receivedCtrl': TextEditingController(text: '0'),
           'discountCtrl': TextEditingController(text: '0'),
           'narrationCtrl': TextEditingController(),
@@ -71,13 +371,71 @@ class _RecoveryInvoiceWiseScreenState extends State<RecoveryInvoiceWiseScreen> {
   }
 
   Map<String, dynamic> _buildPayload() {
-    final customerData = <Map<String, dynamic>>[];
+    final customerRecoveries = <Map<String, dynamic>>[];
     for (final entry in _customerInvoices.entries) {
-      customerData.add({ 'customerId': entry.key, 'invoices': entry.value.map((inv) => { 'saleId': inv['saleId'], 'date': inv['date'], 'invoiceValue': inv['invoiceValue'], 'received': double.tryParse((inv['receivedCtrl'] as TextEditingController).text) ?? 0, 'discount': double.tryParse((inv['discountCtrl'] as TextEditingController).text) ?? 0, 'narration': (inv['narrationCtrl'] as TextEditingController).text }).toList() });
+      customerRecoveries.add({
+        'customerId': entry.key,
+        'invoices': entry.value.map((invoice) {
+          final received =
+              double.tryParse(
+                (invoice['receivedCtrl'] as TextEditingController).text,
+              ) ??
+              0;
+          final discount =
+              double.tryParse(
+                (invoice['discountCtrl'] as TextEditingController).text,
+              ) ??
+              0;
+          return {
+            'saleId': invoice['saleId'],
+            'saleDisplayId': invoice['saleDisplayId'],
+            'date': invoice['date'],
+            'invoiceValue': invoice['invoiceValue'],
+            'adjusted': invoice['adjusted'],
+            'receivable': invoice['receivable'],
+            'received': received,
+            'discount': discount,
+            'balance':
+                ((invoice['receivable'] as num?)?.toDouble() ?? 0) -
+                received -
+                discount,
+            'narration':
+                (invoice['narrationCtrl'] as TextEditingController).text,
+          };
+        }).toList(),
+      });
     }
-    final netReceived = customerData.fold<double>(0, (s, c) => s + (c['invoices'] as List).fold<double>(0, (ss, i) => ss + ((i['received'] as num?)?.toDouble() ?? 0)));
-    final discount = customerData.fold<double>(0, (s, c) => s + (c['invoices'] as List).fold<double>(0, (ss, i) => ss + ((i['discount'] as num?)?.toDouble() ?? 0)));
-    return { 'recoveryDate': _recoveryDateCtrl.text, 'salesmanId': _salesmanId, 'salesmanName': _salesmanNameCtrl.text, 'townId': _townId, 'sectorId': _sectorId, 'showSalesmanInNarration': _showSalesmanInNarration, 'customerData': customerData, 'netReceived': netReceived, 'discount': discount, 'grossRecoveries': netReceived + discount, 'status': 'saved' };
+    final netReceived = customerRecoveries.fold<double>(
+      0,
+      (sum, customer) => sum +
+          (customer['invoices'] as List).fold<double>(
+            0,
+            (inner, invoice) =>
+                inner + ((invoice['received'] as num?)?.toDouble() ?? 0),
+          ),
+    );
+    final discount = customerRecoveries.fold<double>(
+      0,
+      (sum, customer) => sum +
+          (customer['invoices'] as List).fold<double>(
+            0,
+            (inner, invoice) =>
+                inner + ((invoice['discount'] as num?)?.toDouble() ?? 0),
+          ),
+    );
+    return {
+      'recoveryDate': _recoveryDateCtrl.text,
+      'salesmanId': _salesmanId,
+      'salesmanName': _salesmanNameCtrl.text,
+      'townId': _townId,
+      'sectorId': _sectorId,
+      'showSalesmanInNarration': _showSalesmanInNarration,
+      'customerRecoveries': customerRecoveries,
+      'netReceived': netReceived,
+      'discount': discount,
+      'grossRecoveries': netReceived + discount,
+      'status': 'saved',
+    };
   }
 
   Future<void> _save() async {
@@ -85,108 +443,334 @@ class _RecoveryInvoiceWiseScreenState extends State<RecoveryInvoiceWiseScreen> {
     setState(() => _isSaving = true);
     try {
       final ctrl = context.read<RecoveryInvoiceWiseController>();
-      if (_currentId == null) { final r = await ctrl.add(_buildPayload()); setState(() => _currentId = r.id); }
-      else { await ctrl.updateItem(_currentId!, _buildPayload()); }
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved successfully')));
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'))); }
-    finally { if (mounted) setState(() => _isSaving = false); }
+      if (_currentId == null) {
+        final record = await ctrl.add(_buildPayload());
+        setState(() {
+          _currentId = record.id;
+          _recoveryId = record.recoveryId;
+        });
+      } else {
+        await ctrl.updateItem(_currentId!, _buildPayload());
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Saved successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Future<void> _remove() async {
     if (_currentId == null) return;
-    final ok = await showDialog<bool>(context: context, builder: (_) => AlertDialog(title: const Text('Confirm Delete'), content: const Text('Delete this recovery?'), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')), ElevatedButton(onPressed: () => Navigator.pop(context, true), style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerText), child: const Text('Delete'))]));
-    if (ok == true) { await context.read<RecoveryInvoiceWiseController>().deleteItem(_currentId!); _clearForm(); if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted'))); }
-  }
-
-  Future<void> _openRecords() async {
-    final ctrl = context.read<RecoveryInvoiceWiseController>();
-    if (ctrl.items.isEmpty) await ctrl.fetchAll();
-    if (!mounted) return;
-    final record = await RecordBrowserDialog.show<RecoveryInvoiceWiseModel>(
+    final confirmed = await showDialog<bool>(
       context: context,
-      records: ctrl.items,
-      title: 'Recovery (Invoice Wise)',
-      getBusinessId: (m) => m.recoveryId,
-      getTitle: (m) => '${m.recoveryId}  -  ${m.salesmanName}',
-      getSubtitle: (m) => m.recoveryDate.isNotEmpty ? m.recoveryDate.substring(0,10) : '?',
+      builder: (_) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Delete this recovery?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerText,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
-    if (record != null && mounted) _loadFromModel(record);
+    if (confirmed == true && mounted) {
+      await context.read<RecoveryInvoiceWiseController>().deleteItem(
+            _currentId!,
+          );
+      if (mounted) Navigator.pop(context);
+    }
   }
 
   InputDecoration _dec(String label) => AppTheme.inputDecoration(label);
 
   @override
   Widget build(BuildContext context) {
-    final salesmen = context.read<SalesmenController>().typedItems;
-    final towns = context.read<TownsController>().typedItems;
-    final sectors = context.read<SectorsController>().typedItems;
-    final customers = context.read<CustomersController>().typedItems;
+    final salesmen = context.watch<SalesmenController>().typedItems;
+    final towns = context.watch<TownsController>().typedItems;
+    final sectors = context.watch<SectorsController>().typedItems;
+    final customers = context.watch<CustomersController>().typedItems;
 
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Recovery (Invoice Wise)', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              Container(decoration: AppTheme.cardDecor, padding: AppTheme.cardPadding, child: Wrap(spacing: 12, runSpacing: 12, children: [
-                SizedBox(width: 160, child: TextFormField(controller: _recoveryDateCtrl, decoration: _dec('Recovery Date'), readOnly: true, onTap: () async { final p = await showDatePicker(context: context, initialDate: DateTime.tryParse(_recoveryDateCtrl.text) ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100)); if (p != null) setState(() => _recoveryDateCtrl.text = p.toIso8601String().substring(0, 10)); })),
-                SizedBox(width: 200, child: DropdownButtonFormField<String>(value: _salesmanId.isEmpty ? null : _salesmanId, decoration: _dec('Salesman'), isExpanded: true, items: salesmen.map((s) => DropdownMenuItem(value: s.id, child: Text(s.text('name'), overflow: TextOverflow.ellipsis))).toList(), onChanged: (val) { if (val == null) return; setState(() => _salesmanId = val); _salesmanNameCtrl.text = salesmen.firstWhere((s) => s.id == val).text('name'); })),
-                SizedBox(width: 160, child: DropdownButtonFormField<String>(value: _townId.isEmpty ? null : _townId, decoration: _dec('Town'), isExpanded: true, items: towns.map((t) => DropdownMenuItem(value: t.id, child: Text(t.text('name'), overflow: TextOverflow.ellipsis))).toList(), onChanged: (val) => setState(() => _townId = val ?? ''))),
-                SizedBox(width: 160, child: DropdownButtonFormField<String>(value: _sectorId.isEmpty ? null : _sectorId, decoration: _dec('Sector'), isExpanded: true, items: sectors.map((s) => DropdownMenuItem(value: s.id, child: Text(s.text('name'), overflow: TextOverflow.ellipsis))).toList(), onChanged: (val) => setState(() => _sectorId = val ?? ''))),
-                Row(mainAxisSize: MainAxisSize.min, children: [Checkbox(value: _showSalesmanInNarration, onChanged: (v) => setState(() => _showSalesmanInNarration = v ?? false)), const Text('Show Salesman in Narration', style: TextStyle(fontSize: 13))]),
-                ElevatedButton(onPressed: _populate, child: const Text('Populate')),
-              ])),
-              const SizedBox(height: 16),
-              if (_customerInvoices.isNotEmpty) ...[
-                for (final entry in _customerInvoices.entries) ...[
-                  Builder(builder: (ctx) {
-                    String custName = entry.key;
-                    try { custName = customers.firstWhere((c) => c.id == entry.key).text('name'); } catch (_) {}
-                    return ExpansionTile(
-                      title: Text(custName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      initiallyExpanded: true,
-                      children: [
-                        SingleChildScrollView(scrollDirection: Axis.horizontal, child: DataTable(
-                          headingRowColor: WidgetStateProperty.all(AppTheme.clayBg), dataRowMinHeight: 40, dataRowMaxHeight: 56,
-                          columns: const [DataColumn(label: Text('Sale ID')), DataColumn(label: Text('Date')), DataColumn(label: Text('Inv Value')), DataColumn(label: Text('Receivable')), DataColumn(label: Text('Received')), DataColumn(label: Text('Discount')), DataColumn(label: Text('Balance')), DataColumn(label: Text('Narration'))],
-                          rows: entry.value.asMap().entries.map((en) { final idx = en.key; final inv = en.value; final received = double.tryParse((inv['receivedCtrl'] as TextEditingController).text) ?? 0; final discount = double.tryParse((inv['discountCtrl'] as TextEditingController).text) ?? 0; final balance = ((inv['invoiceValue'] as num?)?.toDouble() ?? 0) - received - discount; return DataRow(
-                            color: WidgetStateProperty.resolveWith((s) => idx.isOdd ? AppTheme.clayBg.withValues(alpha: 0.5) : Colors.transparent),
-                            cells: [
-                              DataCell(Text(inv['saleDisplayId'] ?? inv['saleId'] ?? '')),
-                              DataCell(Text(inv['date'] ?? '')),
-                              DataCell(Text((inv['invoiceValue'] as num?)?.toStringAsFixed(2) ?? '0')),
-                              DataCell(Text((inv['receivable'] as num?)?.toStringAsFixed(2) ?? '0')),
-                              DataCell(SizedBox(width: 100, child: TextFormField(controller: inv['receivedCtrl'] as TextEditingController, decoration: _dec(''), keyboardType: TextInputType.number, onChanged: (_) => setState(() {})))),
-                              DataCell(SizedBox(width: 100, child: TextFormField(controller: inv['discountCtrl'] as TextEditingController, decoration: _dec(''), keyboardType: TextInputType.number, onChanged: (_) => setState(() {})))),
-                              DataCell(Text(balance.toStringAsFixed(2))),
-                              DataCell(SizedBox(width: 160, child: TextFormField(controller: inv['narrationCtrl'] as TextEditingController, decoration: _dec('')))),
-                            ],
-                          ); }).toList(),
-                        )),
-                      ],
-                    );
-                  }),
-                ],
-              ] else
-                const Padding(padding: EdgeInsets.all(16), child: Text('Click Populate to load invoices.', style: TextStyle(color: AppTheme.textSecondary))),
-            ]),
+    return InvoicingFormDialog(
+      title: 'Recovery (Invoice Wise)',
+      badgeText: _recoveryId.isNotEmpty ? 'Recovery ID: $_recoveryId' : null,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            decoration: AppTheme.cardDecor,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              children: [
+                SizedBox(
+                  width: 150,
+                  child: TextFormField(
+                    controller: _recoveryDateCtrl,
+                    decoration: _dec('Recovery Date'),
+                    readOnly: true,
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate:
+                            DateTime.tryParse(_recoveryDateCtrl.text) ??
+                                DateTime.now(),
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null && mounted) {
+                        setState(() {
+                          _recoveryDateCtrl.text =
+                              picked.toIso8601String().substring(0, 10);
+                        });
+                      }
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 220,
+                  child: DropdownButtonFormField<String>(
+                    value: _salesmanId.isEmpty ? null : _salesmanId,
+                    decoration: _dec('Salesman'),
+                    isExpanded: true,
+                    items: salesmen
+                        .map(
+                          (salesman) => DropdownMenuItem<String>(
+                            value: salesman.id,
+                            child: Text(
+                              salesman.text('name'),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      final salesman =
+                          salesmen.firstWhere((item) => item.id == value);
+                      setState(() => _salesmanId = value);
+                      _salesmanNameCtrl.text = salesman.text('name');
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 170,
+                  child: DropdownButtonFormField<String>(
+                    value: _townId.isEmpty ? null : _townId,
+                    decoration: _dec('Town'),
+                    isExpanded: true,
+                    items: towns
+                        .map(
+                          (town) => DropdownMenuItem<String>(
+                            value: town.id,
+                            child: Text(
+                              town.text('name'),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) =>
+                        setState(() => _townId = value ?? ''),
+                  ),
+                ),
+                SizedBox(
+                  width: 170,
+                  child: DropdownButtonFormField<String>(
+                    value: _sectorId.isEmpty ? null : _sectorId,
+                    decoration: _dec('Sector'),
+                    isExpanded: true,
+                    items: sectors
+                        .map(
+                          (sector) => DropdownMenuItem<String>(
+                            value: sector.id,
+                            child: Text(
+                              sector.text('name'),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) =>
+                        setState(() => _sectorId = value ?? ''),
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Checkbox(
+                      value: _showSalesmanInNarration,
+                      onChanged: (value) => setState(
+                        () => _showSalesmanInNarration = value ?? false,
+                      ),
+                    ),
+                    const Text(
+                      'Show Salesman in Narration',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+                ElevatedButton(
+                  onPressed: _populate,
+                  child: const Text('Populate'),
+                ),
+              ],
+            ),
           ),
-        ),
-        Container(
-          color: AppTheme.surfaceWhite, padding: const EdgeInsets.all(12),
-          child: Row(children: [
-            TextButton(onPressed: _clearForm, child: const Text('Clear')),
-            TextButton(onPressed: _openRecords, child: const Text('Records')),
-            TextButton(onPressed: _currentId != null ? _remove : null, child: const Text('Remove')),
-            const Spacer(),
-            ElevatedButton(onPressed: _isSaving ? null : _save, child: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save')),
-            const SizedBox(width: 8),
-            OutlinedButton(onPressed: _clearForm, child: const Text('Close')),
-          ]),
-        ),
-      ],
+          const SizedBox(height: 16),
+          if (_customerInvoices.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Click Populate to load invoices.',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
+            )
+          else
+            ..._customerInvoices.entries.map((entry) {
+              String customerName = entry.key;
+              try {
+                customerName = customers
+                    .firstWhere((customer) => customer.id == entry.key)
+                    .text('name');
+              } catch (_) {}
+              return ExpansionTile(
+                title: Text(
+                  customerName,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                initiallyExpanded: true,
+                children: [
+                  HorizontalScrollWheel(
+                    child: DataTable(
+                      headingRowColor:
+                          WidgetStateProperty.all(AppTheme.clayBg),
+                      columnSpacing: 16,
+                      horizontalMargin: 12,
+                      dataRowMinHeight: 44,
+                      dataRowMaxHeight: 52,
+                      columns: const [
+                        DataColumn(label: Text('Sale ID')),
+                        DataColumn(label: Text('Date')),
+                        DataColumn(label: Text('Inv Value')),
+                        DataColumn(label: Text('Receivable')),
+                        DataColumn(label: Text('Received')),
+                        DataColumn(label: Text('Discount')),
+                        DataColumn(label: Text('Balance')),
+                        DataColumn(label: Text('Narration')),
+                      ],
+                      rows: entry.value.asMap().entries.map((invoiceEntry) {
+                        final idx = invoiceEntry.key;
+                        final invoice = invoiceEntry.value;
+                        final received = double.tryParse(
+                              (invoice['receivedCtrl'] as TextEditingController)
+                                  .text,
+                            ) ??
+                            0;
+                        final discount = double.tryParse(
+                              (invoice['discountCtrl'] as TextEditingController)
+                                  .text,
+                            ) ??
+                            0;
+                        final receivable =
+                            (invoice['receivable'] as num?)?.toDouble() ??
+                                (invoice['invoiceValue'] as num?)?.toDouble() ??
+                                0;
+                        final balance = receivable - received - discount;
+                        return DataRow(
+                          color: WidgetStateProperty.resolveWith(
+                            (states) => idx.isOdd
+                                ? AppTheme.clayBg.withValues(alpha: 0.5)
+                                : Colors.transparent,
+                          ),
+                          cells: [
+                            DataCell(
+                              Text(
+                                '${invoice['saleDisplayId'] ?? invoice['saleId'] ?? ''}',
+                              ),
+                            ),
+                            DataCell(Text('${invoice['date'] ?? ''}')),
+                            DataCell(
+                              Text(
+                                ((invoice['invoiceValue'] as num?)?.toDouble() ??
+                                        0)
+                                    .toStringAsFixed(2),
+                              ),
+                            ),
+                            DataCell(Text(receivable.toStringAsFixed(2))),
+                            DataCell(
+                              SizedBox(
+                                width: 100,
+                                child: TextFormField(
+                                  controller:
+                                      invoice['receivedCtrl']
+                                          as TextEditingController,
+                                  decoration: _dec(''),
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(
+                                width: 100,
+                                child: TextFormField(
+                                  controller:
+                                      invoice['discountCtrl']
+                                          as TextEditingController,
+                                  decoration: _dec(''),
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ),
+                            ),
+                            DataCell(Text(balance.toStringAsFixed(2))),
+                            DataCell(
+                              SizedBox(
+                                width: 160,
+                                child: TextFormField(
+                                  controller:
+                                      invoice['narrationCtrl']
+                                          as TextEditingController,
+                                  decoration: _dec(''),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              );
+            }),
+        ],
+      ),
+      footer: InvoicingActionBar(
+        onSave: _save,
+        isSaving: _isSaving,
+        onClear: _clearForm,
+        onRemove: _remove,
+        canRemove: _currentId != null,
+        onClose: () => Navigator.pop(context),
+      ),
     );
   }
 }

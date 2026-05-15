@@ -1,5 +1,5 @@
 const {
-  asRequiredString, asNullableString, asNumber, asEnum, asDateString,
+  asRequiredString, asNullableString, asNumber, asBoolean, asEnum, asDateString,
   requireSettingsRef, requirePoultryRef, poultryCollection,
 } = require('../poultry.validators');
 

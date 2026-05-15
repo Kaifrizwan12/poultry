@@ -5,6 +5,7 @@ import 'package:farm_mgt_auth/modules/settings/controllers/vendors_controller.da
 import 'package:farm_mgt_auth/modules/settings/controllers/products_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 
 import '../config/poultry_definitions.dart';
 import '../controllers/flock_controller.dart';
@@ -90,8 +91,7 @@ class _Toolbar extends StatelessWidget {
                 prefixIcon: Icon(Icons.search), hintText: 'Search flocks'),
           ),
           const SizedBox(height: 8),
-          SingleChildScrollView(
-              scrollDirection: Axis.horizontal, child: filters),
+          HorizontalScrollWheel(child: filters),
         ]);
       }
 
@@ -116,7 +116,7 @@ class _Toolbar extends StatelessWidget {
               label: const Text('New Flock')),
         ]),
         const SizedBox(height: 12),
-        SingleChildScrollView(scrollDirection: Axis.horizontal, child: filters),
+        HorizontalScrollWheel(child: filters),
       ]);
     });
   }

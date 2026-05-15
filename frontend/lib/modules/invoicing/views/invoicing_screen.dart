@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../config/invoicing_definitions.dart';
 import '../config/invoicing_nav_config.dart';
 import '../controllers/invoicing_nav_controller.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'sales_invoice_screen.dart';
 import 'purchase_order_screen.dart';
 import 'send_order_screen.dart';
@@ -23,15 +24,6 @@ class InvoicingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<InvoicingNavController>(
       builder: (context, nav, _) {
-        // Ensure a valid invoicing section is selected
-        if (!isInvoicingSection(nav.selectedSection)) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
-              nav.selectSection(InvoicingSection.salesInvoice);
-            }
-          });
-        }
-
         final width = MediaQuery.of(context).size.width;
         if (width < 600) {
           return _MobileInvoicingLayout(nav: nav);
@@ -62,8 +54,7 @@ class _InvoicingChipBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final groups = invoicingScreenGroups();
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return HorizontalScrollWheel(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -166,7 +157,7 @@ class _MobileInvoicingLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMenu = !isInvoicingSection(nav.selectedSection);
+    final isMenu = nav.showMobileMenu;
 
     if (!isMenu) {
       return Scaffold(
@@ -174,7 +165,7 @@ class _MobileInvoicingLayout extends StatelessWidget {
           title: Text(_labelFor(nav.selectedSection)),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: () => nav.selectSection(InvoicingSection.salesInvoice),
+            onPressed: nav.goBackToMenu,
           ),
         ),
         body: Padding(

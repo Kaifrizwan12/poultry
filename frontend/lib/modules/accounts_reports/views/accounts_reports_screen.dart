@@ -2,6 +2,7 @@ import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 
 import '../config/accounts_reports_definitions.dart';
 import '../controllers/accounts_reports_nav_controller.dart';
@@ -48,9 +49,7 @@ class _ChipBar extends StatelessWidget {
     // Resolve effective section: 'account_ledger_view' maps to 'account_ledger_view' chip
     final active = nav.selectedSection;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+    return HorizontalScrollWheel(child: Row(
         children: kAccountsReportsNavItems.map((item) {
           final selected = item.id == active;
           final iconColor =

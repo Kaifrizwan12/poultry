@@ -278,12 +278,14 @@ class _StandaloneInvoiceFormState extends State<_StandaloneInvoiceForm> {
       _balanceDue = widget.item!.balanceDue;
     } else {
       _v = {
-        'invoiceNo': generatedInvoiceNo(),
-        'invoiceDate': DateTime.now().toIso8601String(),
-        'saleType': 'live_weight',
-        'discountPercent': 0,
-        'taxPercent': 0,
-        'advanceReceived': 0,
+        'invoiceNo':          generatedInvoiceNo(),
+        'invoiceDate':        DateTime.now().toIso8601String(),
+        'saleType':           'live_weight',
+        'discountPercent':    0,
+        'taxPercent':         0,
+        'advanceReceived':    0,
+        'postToLedger':       false,
+        'createSalesInvoice': false,
       };
     }
   }
@@ -331,6 +333,55 @@ class _StandaloneInvoiceFormState extends State<_StandaloneInvoiceForm> {
             _field('Vehicle No', _text('vehicleNo')),
             _field('Driver Name', _text('driverName')),
             _field('Notes', _textArea('notes')),
+
+            _section('Accounting Integration'),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.clayBg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.softBorder),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text(
+                  'Requires Posting Configuration to be set in Settings → Posting Config.',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppTheme.terra400,
+                  title: const Text('Create Sales Invoice',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text(
+                      'Auto-creates a Sales Invoice in the Invoicing module.',
+                      style: TextStyle(fontSize: 11)),
+                  value: _v['createSalesInvoice'] == true,
+                  onChanged: (v) => setState(() => _v['createSalesInvoice'] = v),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  activeColor: AppTheme.terra400,
+                  title: const Text('Post to Ledger',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text(
+                      'Auto-posts Dr Accounts Receivable + Cr Sales Revenue.',
+                      style: TextStyle(fontSize: 11)),
+                  value: _v['postToLedger'] == true,
+                  onChanged: (v) => setState(() => _v['postToLedger'] = v),
+                ),
+                if ((_v['linkedSalesInvoiceId'] ?? '').toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(children: const [
+                      Icon(Icons.link, size: 14, color: AppTheme.successText),
+                      SizedBox(width: 4),
+                      Text('Linked Sales Invoice created',
+                          style: TextStyle(fontSize: 11, color: AppTheme.successText)),
+                    ]),
+                  ),
+              ]),
+            ),
 
             const SizedBox(height: 20),
             Row(children: [

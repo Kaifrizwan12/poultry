@@ -3,6 +3,7 @@ import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.d
 import 'package:farm_mgt_auth/modules/settings/controllers/settings_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 
 import '../controllers/accounts_reports_nav_controller.dart';
 import '../controllers/ledger_controller.dart';
@@ -478,9 +479,7 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
+    return HorizontalScrollWheel(child: Row(children: [
         // Date range
         _DateBtn('From: ${_dateLabel(startDate)}', onPickStart),
         const SizedBox(width: 6),
@@ -619,9 +618,7 @@ class _LedgerTable extends StatelessWidget {
   Widget _desktopTable(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       return SingleChildScrollView(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
+        child: HorizontalScrollWheel(child: ConstrainedBox(
             constraints: BoxConstraints(minWidth: constraints.maxWidth),
             child: DataTable(
               columnSpacing: 8,

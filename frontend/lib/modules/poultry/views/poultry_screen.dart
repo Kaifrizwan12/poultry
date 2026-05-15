@@ -1,6 +1,7 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 
 import '../controllers/poultry_nav_controller.dart';
 import 'feed_schedule_screen.dart';
@@ -66,9 +67,7 @@ class _PoultryChipBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final activeSection = nav.selectedSection == 'menu' ? 'flocks' : nav.selectedSection;
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+    return HorizontalScrollWheel(child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: _kNavItems.map((item) {
           final selected  = item.id == activeSection;

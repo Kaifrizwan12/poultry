@@ -1,6 +1,7 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 
 import '../controllers/poultry_report_controller.dart';
 import '../models/flock_status_report_model.dart';
@@ -237,9 +238,7 @@ class _FeedHistoryTable extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.softBorder),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
+      child: HorizontalScrollWheel(child: DataTable(
           headingRowColor: WidgetStateProperty.all(AppTheme.pageBg),
           dataRowMinHeight: 40,
           dataRowMaxHeight: 52,
@@ -302,9 +301,7 @@ class _CompletedVaccineTable extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.softBorder),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
+      child: HorizontalScrollWheel(child: DataTable(
           headingRowColor: WidgetStateProperty.all(AppTheme.pageBg),
           dataRowMinHeight: 40,
           dataRowMaxHeight: 52,

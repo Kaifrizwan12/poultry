@@ -14,11 +14,15 @@ class InvoiceLineItemRow extends StatefulWidget {
     required this.isPurchase,
     required this.onAdd,
     required this.products,
+    this.initialValues,
   });
 
   final bool isPurchase;
   final void Function(Map<String, dynamic>) onAdd;
   final List<Product> products;
+
+  /// When non-null the row pre-fills all fields (edit mode).
+  final Map<String, dynamic>? initialValues;
 
   @override
   State<InvoiceLineItemRow> createState() => _InvoiceLineItemRowState();
@@ -26,26 +30,51 @@ class InvoiceLineItemRow extends StatefulWidget {
 
 class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
   String? _productId;
-  String _packingId  = '';
+  String _packingId = '';
   String _packingName = '';
-  double _pack       = 1;
-  String _unitName   = '';
+  double _pack = 1;
+  String _unitName = '';
   double _salesTaxPercent = 0;
 
   // Editable fields
-  final _qtyPacksCtrl  = TextEditingController(text: '0');
-  final _qtyLooseCtrl  = TextEditingController(text: '0');
-  final _bonusCtrl     = TextEditingController(text: '0');
-  final _priceCtrl     = TextEditingController(text: '0');
-  final _discPctCtrl   = TextEditingController(text: '0');
+  final _qtyPacksCtrl = TextEditingController(text: '0');
+  final _qtyLooseCtrl = TextEditingController(text: '0');
+  final _bonusCtrl = TextEditingController(text: '0');
+  final _priceCtrl = TextEditingController(text: '0');
+  final _discPctCtrl = TextEditingController(text: '0');
 
   // Read-only display fields — persisted in state, updated programmatically.
   // NEVER create TextEditingController inside build(); it leaks on every rebuild.
-  final _packCtrl      = TextEditingController(text: '1');
-  final _unitCtrl      = TextEditingController();
-  final _taxPctCtrl    = TextEditingController(text: '0.00');
-  final _grossCtrl     = TextEditingController(text: '0.00');
-  final _valIncSTCtrl  = TextEditingController(text: '0.00');
+  final _packCtrl = TextEditingController(text: '1');
+  final _unitCtrl = TextEditingController();
+  final _taxPctCtrl = TextEditingController(text: '0.00');
+  final _grossCtrl = TextEditingController(text: '0.00');
+  final _valIncSTCtrl = TextEditingController(text: '0.00');
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialValues != null) _preloadFrom(widget.initialValues!);
+  }
+
+  void _preloadFrom(Map<String, dynamic> item) {
+    _productId = item['productId'] as String?;
+    _packingId = item['packingId'] as String? ?? '';
+    _packingName = item['packingName'] as String? ?? '';
+    _pack = (item['pack'] as num?)?.toDouble() ?? 1;
+    _unitName = item['unit'] as String? ?? '';
+    _salesTaxPercent = (item['salesTaxPercent'] as num?)?.toDouble() ?? 0;
+    _qtyPacksCtrl.text = (item['qtyPacks'] as num?)?.toString() ?? '0';
+    _qtyLooseCtrl.text = (item['qtyLoose'] as num?)?.toString() ?? '0';
+    _bonusCtrl.text = (item['bonus'] as num?)?.toString() ?? '0';
+    _priceCtrl.text = (item['price'] as num?)?.toStringAsFixed(2) ?? '0';
+    _discPctCtrl.text =
+        (item['discPercent'] as num?)?.toStringAsFixed(2) ?? '0';
+    _packCtrl.text = _pack.toStringAsFixed(0);
+    _unitCtrl.text = _unitName;
+    _taxPctCtrl.text = _salesTaxPercent.toStringAsFixed(2);
+    _recalc();
+  }
 
   @override
   void dispose() {
@@ -72,50 +101,58 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
     }
 
     final packings = context.read<PackingsController>().typedItems;
-    final units    = context.read<UnitsController>().typedItems;
+    final units = context.read<UnitsController>().typedItems;
 
-    final packingId = widget.isPurchase ? product.purPackingId : product.salePackingId;
-    final price     = widget.isPurchase ? product.purchasePrice : product.sale1Price;
-    final tax       = product.salesTaxPercent;
+    final packingId =
+        widget.isPurchase ? product.purPackingId : product.salePackingId;
+    final price =
+        widget.isPurchase ? product.purchasePrice : product.sale1Price;
+    final tax = product.salesTaxPercent;
 
     Packing? packing;
-    try { packing = packings.firstWhere((p) => p.id == packingId); } catch (_) {}
+    try {
+      packing = packings.firstWhere((p) => p.id == packingId);
+    } catch (_) {}
     Unit? unit;
-    try { unit = units.firstWhere((u) => u.id == product!.unitId); } catch (_) {}
+    try {
+      unit = units.firstWhere((u) => u.id == product!.unitId);
+    } catch (_) {}
 
-    final pack        = packing?.quantity ?? 1.0;
+    final pack = packing?.quantity ?? 1.0;
     final packingName = packing?.name ?? '';
-    final unitName    = unit?.name ?? '';
+    final unitName = unit?.name ?? '';
 
-    _packingId   = packingId;
+    _packingId = packingId;
     _packingName = packingName;
-    _pack        = pack;
-    _unitName    = unitName;
+    _pack = pack;
+    _unitName = unitName;
     _salesTaxPercent = tax;
 
-    _priceCtrl.text   = price.toStringAsFixed(2);
-    _packCtrl.text    = pack.toStringAsFixed(0);
-    _unitCtrl.text    = unitName;
-    _taxPctCtrl.text  = tax.toStringAsFixed(2);
+    _priceCtrl.text = price.toStringAsFixed(2);
+    _packCtrl.text = pack.toStringAsFixed(0);
+    _unitCtrl.text = unitName;
+    _taxPctCtrl.text = tax.toStringAsFixed(2);
 
-    setState(() { _productId = productId; });
+    setState(() {
+      _productId = productId;
+    });
     _recalc();
   }
 
   void _recalc() {
-    final qtyPacks   = double.tryParse(_qtyPacksCtrl.text) ?? 0;
-    final qtyLoose   = double.tryParse(_qtyLooseCtrl.text) ?? 0;
-    final price      = double.tryParse(_priceCtrl.text) ?? 0;
-    final discPct    = double.tryParse(_discPctCtrl.text) ?? 0;
-    final tax        = _salesTaxPercent;
+    final qtyPacks = double.tryParse(_qtyPacksCtrl.text) ?? 0;
+    final qtyLoose = double.tryParse(_qtyLooseCtrl.text) ?? 0;
+    final price = double.tryParse(_priceCtrl.text) ?? 0;
+    final discPct = double.tryParse(_discPctCtrl.text) ?? 0;
+    final tax = _salesTaxPercent;
 
-    final lineGross      = (qtyPacks * _pack + qtyLoose) * price;
-    final lineDisc       = lineGross * (discPct / 100);
-    final lineNet        = lineGross - lineDisc;
-    final lineTax        = lineNet * (tax / 100);
+    final lineGross = (qtyPacks * _pack + qtyLoose) * price;
+    final lineDisc = lineGross * (discPct / 100);
+    final lineNet = lineGross - lineDisc;
+    final lineTax = lineNet * (tax / 100);
     final lineValueIncST = lineNet + lineTax;
 
-    _grossCtrl.text    = lineGross.toStringAsFixed(2);
+    _grossCtrl.text = lineGross.toStringAsFixed(2);
     _valIncSTCtrl.text = lineValueIncST.toStringAsFixed(2);
 
     // No setState needed — controllers notify their listeners directly.
@@ -138,56 +175,58 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
       return;
     }
 
-    final price      = double.tryParse(_priceCtrl.text) ?? 0;
-    final discPct    = double.tryParse(_discPctCtrl.text) ?? 0;
-    final bonus      = double.tryParse(_bonusCtrl.text) ?? 0;
-    final lineGross  = (qtyPacks * _pack + qtyLoose) * price;
-    final lineDisc   = lineGross * (discPct / 100);
-    final lineNet    = lineGross - lineDisc;
-    final lineTax    = lineNet * (_salesTaxPercent / 100);
+    final price = double.tryParse(_priceCtrl.text) ?? 0;
+    final discPct = double.tryParse(_discPctCtrl.text) ?? 0;
+    final bonus = double.tryParse(_bonusCtrl.text) ?? 0;
+    final lineGross = (qtyPacks * _pack + qtyLoose) * price;
+    final lineDisc = lineGross * (discPct / 100);
+    final lineNet = lineGross - lineDisc;
+    final lineTax = lineNet * (_salesTaxPercent / 100);
     final lineValueIncST = lineNet + lineTax;
 
     String productName = '';
-    try { productName = widget.products.firstWhere((p) => p.id == _productId).name; } catch (_) {}
+    try {
+      productName = widget.products.firstWhere((p) => p.id == _productId).name;
+    } catch (_) {}
 
     widget.onAdd({
-      'productId':       _productId,
-      'productName':     productName,
-      'packingId':       _packingId,
-      'packingName':     _packingName,
-      'pack':            _pack,
-      'unit':            _unitName,
-      'qtyPacks':        qtyPacks,
-      'qtyLoose':        qtyLoose,
-      'bonus':           bonus,
-      'price':           price,
-      'discPercent':     discPct,
+      'productId': _productId,
+      'productName': productName,
+      'packingId': _packingId,
+      'packingName': _packingName,
+      'pack': _pack,
+      'unit': _unitName,
+      'qtyPacks': qtyPacks,
+      'qtyLoose': qtyLoose,
+      'bonus': bonus,
+      'price': price,
+      'discPercent': discPct,
       'salesTaxPercent': _salesTaxPercent,
-      'lineGross':       lineGross,
-      'lineDisc':        lineDisc,
-      'lineNet':         lineNet,
-      'lineTax':         lineTax,
-      'lineValueIncST':  lineValueIncST,
+      'lineGross': lineGross,
+      'lineDisc': lineDisc,
+      'lineNet': lineNet,
+      'lineTax': lineTax,
+      'lineValueIncST': lineValueIncST,
     });
 
     // Reset to blank entry
     setState(() {
-      _productId       = null;
-      _packingId       = '';
-      _packingName     = '';
-      _pack            = 1;
-      _unitName        = '';
+      _productId = null;
+      _packingId = '';
+      _packingName = '';
+      _pack = 1;
+      _unitName = '';
       _salesTaxPercent = 0;
     });
     _qtyPacksCtrl.text = '0';
     _qtyLooseCtrl.text = '0';
-    _bonusCtrl.text    = '0';
-    _priceCtrl.text    = '0';
-    _discPctCtrl.text  = '0';
-    _packCtrl.text     = '1';
-    _unitCtrl.text     = '';
-    _taxPctCtrl.text   = '0.00';
-    _grossCtrl.text    = '0.00';
+    _bonusCtrl.text = '0';
+    _priceCtrl.text = '0';
+    _discPctCtrl.text = '0';
+    _packCtrl.text = '1';
+    _unitCtrl.text = '';
+    _taxPctCtrl.text = '0.00';
+    _grossCtrl.text = '0.00';
     _valIncSTCtrl.text = '0.00';
   }
 
@@ -316,8 +355,11 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
           ),
           ElevatedButton.icon(
             onPressed: _addItem,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Add'),
+            icon: Icon(
+              widget.initialValues != null ? Icons.check : Icons.add,
+              size: 16,
+            ),
+            label: Text(widget.initialValues != null ? 'Update' : 'Add'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),

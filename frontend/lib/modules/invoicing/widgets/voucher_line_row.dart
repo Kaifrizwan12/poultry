@@ -9,10 +9,12 @@ class VoucherLineRow extends StatefulWidget {
     super.key,
     required this.voucherType,
     required this.onAdd,
+    this.initialValues,
   });
 
   final String voucherType;
   final void Function(Map<String, dynamic>) onAdd;
+  final Map<String, dynamic>? initialValues;
 
   @override
   State<VoucherLineRow> createState() => _VoucherLineRowState();
@@ -20,6 +22,7 @@ class VoucherLineRow extends StatefulWidget {
 
 class _VoucherLineRowState extends State<VoucherLineRow> {
   final _accountCodeCtrl = TextEditingController();
+  final _accountNameCtrl = TextEditingController();
   final _debitCtrl = TextEditingController(text: '0');
   final _creditCtrl = TextEditingController(text: '0');
   final _narrationCtrl = TextEditingController();
@@ -28,8 +31,27 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
   String _accountName = '';
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.initialValues != null) _preloadFrom(widget.initialValues!);
+  }
+
+  void _preloadFrom(Map<String, dynamic> line) {
+    _accountId = '${line['accountId'] ?? ''}';
+    _accountName = '${line['accountName'] ?? ''}';
+    _accountCodeCtrl.text = '${line['accountCode'] ?? ''}';
+    _accountNameCtrl.text = _accountName;
+    _debitCtrl.text =
+        ((line['debit'] as num?)?.toDouble() ?? 0).toStringAsFixed(2);
+    _creditCtrl.text =
+        ((line['credit'] as num?)?.toDouble() ?? 0).toStringAsFixed(2);
+    _narrationCtrl.text = '${line['narration'] ?? ''}';
+  }
+
+  @override
   void dispose() {
     _accountCodeCtrl.dispose();
+    _accountNameCtrl.dispose();
     _debitCtrl.dispose();
     _creditCtrl.dispose();
     _narrationCtrl.dispose();
@@ -51,11 +73,13 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
         _accountId = account!.id;
         _accountName = account.text('accountName');
       });
+      _accountNameCtrl.text = _accountName;
     } else {
       setState(() {
         _accountId = '';
         _accountName = 'Not found';
       });
+      _accountNameCtrl.text = _accountName;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Account "$code" not found')),
       );
@@ -73,7 +97,9 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
     final credit = double.tryParse(_creditCtrl.text) ?? 0;
     if (debit <= 0 && credit <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debit or Credit amount must be greater than 0')),
+        const SnackBar(
+          content: Text('Debit or Credit amount must be greater than 0'),
+        ),
       );
       return;
     }
@@ -91,6 +117,7 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
       _accountName = '';
     });
     _accountCodeCtrl.clear();
+    _accountNameCtrl.clear();
     _debitCtrl.text = '0';
     _creditCtrl.text = '0';
     _narrationCtrl.clear();
@@ -129,7 +156,7 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
             child: AbsorbPointer(
               child: TextFormField(
                 decoration: _dec('Account Name'),
-                controller: TextEditingController(text: _accountName),
+                controller: _accountNameCtrl,
                 style: const TextStyle(color: AppTheme.textSecondary),
               ),
             ),
@@ -161,8 +188,11 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
           ),
           ElevatedButton.icon(
             onPressed: _addLine,
-            icon: const Icon(Icons.add, size: 16),
-            label: const Text('Add'),
+            icon: Icon(
+              widget.initialValues != null ? Icons.check : Icons.add,
+              size: 16,
+            ),
+            label: Text(widget.initialValues != null ? 'Update' : 'Add'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),

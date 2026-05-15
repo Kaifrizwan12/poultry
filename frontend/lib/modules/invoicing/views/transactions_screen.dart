@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../config/invoicing_definitions.dart';
 import '../config/invoicing_nav_config.dart';
 import '../controllers/invoicing_nav_controller.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'recovery_invoice_screen.dart';
 import 'recovery_invoice_wise_screen.dart';
 import 'recovery_receivable_wise_screen.dart';
@@ -28,15 +29,16 @@ class TransactionsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<InvoicingNavController>(
       builder: (context, nav, _) {
-        if (!isTransactionsSection(nav.selectedSection)) {
+        final width = MediaQuery.of(context).size.width;
+        // On desktop/tablet only: auto-select first transactions section if
+        // the controller still holds the default invoicing section.
+        if (width >= 600 && !isTransactionsSection(nav.selectedSection)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (context.mounted) {
               nav.selectSection(InvoicingSection.recoveryInvoice);
             }
           });
         }
-
-        final width = MediaQuery.of(context).size.width;
         if (width < 600) {
           return _MobileTransactionsLayout(nav: nav);
         }
@@ -66,8 +68,7 @@ class _TransactionsChipBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final groups = transactionsScreenGroups();
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return HorizontalScrollWheel(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -159,7 +160,7 @@ class _MobileTransactionsLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMenu = !isTransactionsSection(nav.selectedSection);
+    final isMenu = nav.showMobileMenu;
 
     if (!isMenu) {
       return Scaffold(
@@ -167,7 +168,7 @@ class _MobileTransactionsLayout extends StatelessWidget {
           title: Text(_labelFor(nav.selectedSection)),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: () => nav.selectSection(InvoicingSection.recoveryInvoice),
+            onPressed: nav.goBackToMenu,
           ),
         ),
         body: Padding(

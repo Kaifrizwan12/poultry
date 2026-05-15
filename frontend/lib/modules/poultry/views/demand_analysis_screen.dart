@@ -1,6 +1,7 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 
 import '../controllers/flock_controller.dart';
 import '../controllers/poultry_report_controller.dart';
@@ -312,26 +313,27 @@ class _FlockExpansion extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w700, color: AppTheme.terra600))),
             ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(AppTheme.pageBg),
-                columnSpacing: 20,
-                dataRowMinHeight: 36, dataRowMaxHeight: 44,
-                headingTextStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
-                columns: const [
-                  DataColumn(label: Text('Date')),
-                  DataColumn(label: Text('Age'), numeric: true),
-                  DataColumn(label: Text('Product')),
-                  DataColumn(label: Text('Req (kg)'), numeric: true),
-                ],
-                rows: flock.projectedFeed.map((r) => DataRow(cells: [
-                  DataCell(Text(_formatDate(r.date))),
-                  DataCell(Text('${r.ageDays}')),
-                  DataCell(Text(r.productName)),
-                  DataCell(Text(r.requiredKg.toStringAsFixed(2))),
-                ])).toList(),
+              child: HorizontalScrollWheel(
+                child: DataTable(
+                  headingRowColor: WidgetStateProperty.all(AppTheme.pageBg),
+                  columnSpacing: 20,
+                  dataRowMinHeight: 36, dataRowMaxHeight: 44,
+                  headingTextStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.textSecondary),
+                  columns: const [
+                    DataColumn(label: Text('Date')),
+                    DataColumn(label: Text('Age'), numeric: true),
+                    DataColumn(label: Text('Product')),
+                    DataColumn(label: Text('Req (kg)'), numeric: true),
+                  ],
+                  rows: flock.projectedFeed.map((r) => DataRow(cells: [
+                    DataCell(Text(_formatDate(r.date))),
+                    DataCell(Text('${r.ageDays}')),
+                    DataCell(Text(r.productName)),
+                    DataCell(Text(r.requiredKg.toStringAsFixed(2))),
+                  ])).toList(),
+                ),
               ),
             ),
           ],
@@ -342,10 +344,10 @@ class _FlockExpansion extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w700, color: AppTheme.terra600))),
             ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+            Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: DataTable(
+              child: HorizontalScrollWheel(
+                child: DataTable(
                 headingRowColor: WidgetStateProperty.all(AppTheme.pageBg),
                 columnSpacing: 20,
                 dataRowMinHeight: 36, dataRowMaxHeight: 44,
@@ -364,6 +366,7 @@ class _FlockExpansion extends StatelessWidget {
                   DataCell(Text('${r.birdsCount}')),
                   DataCell(Text(r.totalDose.toStringAsFixed(2))),
                 ])).toList(),
+              ),
               ),
             ),
           ],

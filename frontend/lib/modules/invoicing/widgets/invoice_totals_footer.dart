@@ -1,5 +1,6 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 
 class InvoiceTotalsFooter extends StatelessWidget {
   const InvoiceTotalsFooter({
@@ -35,9 +36,7 @@ class InvoiceTotalsFooter extends StatelessWidget {
     return Container(
       color: AppTheme.clayBg,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
+      child: HorizontalScrollWheel(child: Row(
           children: visibleKeys.map((key) {
             final label = _labels[key] ?? key;
             final value = totals[key] ?? 0.0;

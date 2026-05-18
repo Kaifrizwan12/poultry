@@ -92,14 +92,17 @@ class PoultryCrudScreen<T> extends StatelessWidget {
   }
 
   Widget _buildList(BuildContext context) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (error != null) return Center(child: Padding(padding: const EdgeInsets.all(16), child: Text(error!)));
+    if (error != null)
+      return Center(
+          child: Padding(
+              padding: const EdgeInsets.all(16), child: Text(error!)));
     if (items.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.inbox_outlined, size: 64, color: AppTheme.textTertiary),
+            const Icon(Icons.inbox_outlined,
+                size: 64, color: AppTheme.textTertiary),
             const SizedBox(height: 12),
             Text('No ${title.toLowerCase()} added yet',
                 style: const TextStyle(color: AppTheme.textSecondary)),
@@ -110,20 +113,32 @@ class PoultryCrudScreen<T> extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        final rows = itemSubtitleRows(item);
-        return _RecordCard(
-          title: itemTitle(item),
-          rows: rows.cast<dynamic>(),
-          onEdit: () => onEdit(item),
-          onDelete: () => onDelete(item),
-        );
-      },
+    return Column(
+      children: [
+        if (isLoading)
+          LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: Colors.transparent,
+            color: AppTheme.terra400,
+          ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final rows = itemSubtitleRows(item);
+              return _RecordCard(
+                title: itemTitle(item),
+                rows: rows.cast<dynamic>(),
+                onEdit: () => onEdit(item),
+                onDelete: () => onDelete(item),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

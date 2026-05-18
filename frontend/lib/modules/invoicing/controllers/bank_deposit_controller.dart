@@ -13,7 +13,7 @@ class BankDepositController extends ChangeNotifier {
 
   final BankDepositService _service;
   List<BankDepositModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

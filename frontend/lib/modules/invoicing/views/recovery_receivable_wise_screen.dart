@@ -1,4 +1,5 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/customers_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
@@ -12,6 +13,9 @@ import '../controllers/sales_invoice_controller.dart';
 import '../models/recovery_receivable_wise_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class RecoveryReceivableWiseScreen extends StatefulWidget {
   const RecoveryReceivableWiseScreen({super.key});
@@ -47,10 +51,9 @@ class _RecoveryReceivableWiseScreenState
       await salesInvoiceCtrl.fetchAll();
     }
     if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(
             value: context.read<RecoveryReceivableWiseController>(),
@@ -60,7 +63,8 @@ class _RecoveryReceivableWiseScreenState
             value: context.read<SalesmenController>(),
           ),
           ChangeNotifierProvider.value(value: context.read<TownsController>()),
-          ChangeNotifierProvider.value(value: context.read<SectorsController>()),
+          ChangeNotifierProvider.value(
+              value: context.read<SectorsController>()),
           ChangeNotifierProvider.value(
             value: context.read<CustomersController>(),
           ),
@@ -87,6 +91,7 @@ class _RecoveryReceivableWiseScreenState
     return Consumer<RecoveryReceivableWiseController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -94,15 +99,18 @@ class _RecoveryReceivableWiseScreenState
             children: [
               Row(
                 children: [
-                  Text(
-                    'Recovery (Receivable Wise)',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Text(
+                      'Recovery (Receivable Wise)',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Recovery'),
+                    label: 'New Recovery',
                   ),
                 ],
               ),
@@ -124,7 +132,25 @@ class _RecoveryReceivableWiseScreenState
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -153,7 +179,7 @@ class _RecoveryReceivableWiseScreenState
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -162,6 +188,23 @@ class _RecoveryReceivableWiseScreenState
                     ),
                   ),
                 )
+              else if (isMobile)
+                Expanded(
+                    child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) {
+                    final item = items[i];
+                    return RecordCard(
+                      id: item.recoveryId,
+                      subtitle: item.salesmanName,
+                      meta: AppUtils.formatDate(item.recoveryDate),
+                      amount: AppUtils.fmtAmt(item.netReceived),
+                      onTap: () => _openForm(initial: item),
+                    );
+                  },
+                ))
               else
                 Expanded(
                   child: SingleChildScrollView(
@@ -192,6 +235,9 @@ class _RecoveryReceivableWiseScreenState
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -203,16 +249,17 @@ class _RecoveryReceivableWiseScreenState
                               cells: [
                                 DataCell(Text('${idx + 1}')),
                                 DataCell(Text(item.recoveryId)),
-                                DataCell(Text(item.recoveryDate)),
+                                DataCell(Text(
+                                    AppUtils.formatDate(item.recoveryDate))),
                                 DataCell(Text(item.salesmanName)),
                                 DataCell(
                                   Text('${item.customerRecoveries.length}'),
                                 ),
                                 DataCell(
-                                  Text(item.netReceived.toStringAsFixed(0)),
+                                  Text(AppUtils.fmtAmt(item.netReceived)),
                                 ),
                                 DataCell(
-                                  Text(item.discount.toStringAsFixed(0)),
+                                  Text(AppUtils.fmtAmt(item.discount)),
                                 ),
                               ],
                             );
@@ -314,8 +361,10 @@ class _RecoveryReceivableWiseFormDialogState
         'sectorId': customer['sectorId'] ?? '',
         'sectorName': customer['sectorName'] ?? '',
         'receivable': (customer['receivable'] as num?)?.toDouble() ?? 0,
-        'receivedCtrl': TextEditingController(text: received.toStringAsFixed(2)),
-        'discountCtrl': TextEditingController(text: discount.toStringAsFixed(2)),
+        'receivedCtrl':
+            TextEditingController(text: received.toStringAsFixed(2)),
+        'discountCtrl':
+            TextEditingController(text: discount.toStringAsFixed(2)),
         'narrationCtrl':
             TextEditingController(text: '${customer['narration'] ?? ''}'),
       });
@@ -328,7 +377,8 @@ class _RecoveryReceivableWiseFormDialogState
     final sectors = context.read<SectorsController>().typedItems;
     final filtered = _salesmanId.isEmpty
         ? salesInvoices
-        : salesInvoices.where((invoice) => invoice.salesmanId == _salesmanId)
+        : salesInvoices
+            .where((invoice) => invoice.salesmanId == _salesmanId)
             .toList();
 
     final receivableMap = <String, double>{};
@@ -373,12 +423,12 @@ class _RecoveryReceivableWiseFormDialogState
 
   Map<String, dynamic> _buildPayload() {
     final customerRecoveries = _rows.map((row) {
-      final received =
-          double.tryParse((row['receivedCtrl'] as TextEditingController).text) ??
-              0;
-      final discount =
-          double.tryParse((row['discountCtrl'] as TextEditingController).text) ??
-              0;
+      final received = double.tryParse(
+              (row['receivedCtrl'] as TextEditingController).text) ??
+          0;
+      final discount = double.tryParse(
+              (row['discountCtrl'] as TextEditingController).text) ??
+          0;
       final receivable = (row['receivable'] as num?)?.toDouble() ?? 0;
       return {
         'customerId': row['customerId'],
@@ -429,18 +479,17 @@ class _RecoveryReceivableWiseFormDialogState
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -481,6 +530,7 @@ class _RecoveryReceivableWiseFormDialogState
     final salesmen = context.watch<SalesmenController>().typedItems;
     final towns = context.watch<TownsController>().typedItems;
     final sectors = context.watch<SectorsController>().typedItems;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return InvoicingFormDialog(
       title: 'Recovery (Receivable Wise)',
@@ -563,8 +613,7 @@ class _RecoveryReceivableWiseFormDialogState
                           ),
                         )
                         .toList(),
-                    onChanged: (value) =>
-                        setState(() => _townId = value ?? ''),
+                    onChanged: (value) => setState(() => _townId = value ?? ''),
                   ),
                 ),
                 SizedBox(
@@ -619,6 +668,105 @@ class _RecoveryReceivableWiseFormDialogState
                 style: TextStyle(color: AppTheme.textSecondary),
               ),
             )
+          else if (isMobile)
+            Column(
+              children: _rows.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final row = entry.value;
+                final received = double.tryParse(
+                      (row['receivedCtrl'] as TextEditingController).text,
+                    ) ??
+                    0;
+                final discount = double.tryParse(
+                      (row['discountCtrl'] as TextEditingController).text,
+                    ) ??
+                    0;
+                final receivable = (row['receivable'] as num?)?.toDouble() ?? 0;
+                final balance = receivable - received - discount;
+                final detailParts = <String>[];
+                final sectorName = '${row['sectorName'] ?? ''}';
+                if (sectorName.isNotEmpty) detailParts.add(sectorName);
+                detailParts.add(
+                  'Recvbl ${AppUtils.fmtAmt2(receivable)}',
+                );
+                detailParts.add('Bal ${AppUtils.fmtAmt2(balance)}');
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: idx == _rows.length - 1 ? 0 : 8,
+                  ),
+                  child: Container(
+                    decoration: AppTheme.cardDecor,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${row['customerName'] ?? ''}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          detailParts.join('  ·  '),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Divider(height: 16, thickness: 1),
+                        const SizedBox(height: 4),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final fieldWidth = (constraints.maxWidth - 8) / 2;
+                            return Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: TextFormField(
+                                    controller: row['receivedCtrl']
+                                        as TextEditingController,
+                                    decoration: _dec('Received'),
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: fieldWidth,
+                                  child: TextFormField(
+                                    controller: row['discountCtrl']
+                                        as TextEditingController,
+                                    decoration: _dec('Discount'),
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: constraints.maxWidth,
+                                  child: TextFormField(
+                                    controller: row['narrationCtrl']
+                                        as TextEditingController,
+                                    decoration: _dec('Narration'),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            )
           else
             Container(
               width: double.infinity,
@@ -655,11 +803,14 @@ class _RecoveryReceivableWiseFormDialogState
                         (row['receivable'] as num?)?.toDouble() ?? 0;
                     final balance = receivable - received - discount;
                     return DataRow(
-                      color: WidgetStateProperty.resolveWith(
-                        (states) => idx.isOdd
+                      color: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.pressed)) {
+                          return AppTheme.terra50;
+                        }
+                        return idx.isOdd
                             ? AppTheme.clayBg.withValues(alpha: 0.5)
-                            : Colors.transparent,
-                      ),
+                            : Colors.transparent;
+                      }),
                       cells: [
                         DataCell(Text('${idx + 1}')),
                         DataCell(Text('${row['customerName'] ?? ''}')),

@@ -185,8 +185,6 @@ class _LedgerListScreenState extends State<LedgerListScreen> {
 
   Widget _buildContent(BuildContext context, LedgerController ctrl,
       AccountsReportsNavController nav) {
-    if (ctrl.isLoading) return const Center(child: CircularProgressIndicator());
-
     if (ctrl.error != null) {
       return Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -201,6 +199,18 @@ class _LedgerListScreenState extends State<LedgerListScreen> {
     }
 
     final items = ctrl.filteredItems;
+    if (ctrl.isLoading) {
+      return Column(
+        children: [
+          LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: Colors.transparent,
+            color: AppTheme.terra400,
+          ),
+          const Expanded(child: SizedBox.shrink()),
+        ],
+      );
+    }
     if (items.isEmpty) {
       final filtered =
           ctrl.searchQuery.isNotEmpty || ctrl.filterEntryType != null;
@@ -238,21 +248,32 @@ class _LedgerListScreenState extends State<LedgerListScreen> {
       }
     }
 
-    if (MediaQuery.of(context).size.width < 700) {
-      return _MobileList(
-        items: items,
-        nav: nav,
-        onEdit: _openForm,
-        onDelete: _confirmDelete,
-        onToggleReconciled: onToggleReconciled,
-      );
-    }
-    return _DesktopTable(
-      items: items,
-      nav: nav,
-      onEdit: _openForm,
-      onDelete: _confirmDelete,
-      onToggleReconciled: onToggleReconciled,
+    final listWidget = MediaQuery.of(context).size.width < 700
+        ? _MobileList(
+            items: items,
+            nav: nav,
+            onEdit: _openForm,
+            onDelete: _confirmDelete,
+            onToggleReconciled: onToggleReconciled,
+          )
+        : _DesktopTable(
+            items: items,
+            nav: nav,
+            onEdit: _openForm,
+            onDelete: _confirmDelete,
+            onToggleReconciled: onToggleReconciled,
+          );
+
+    return Column(
+      children: [
+        if (ctrl.isLoading)
+          LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: Colors.transparent,
+            color: AppTheme.terra400,
+          ),
+        Expanded(child: listWidget),
+      ],
     );
   }
 }

@@ -1,4 +1,6 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
+import 'package:farm_mgt_auth/core/responsive_search_filter_bar.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/vendors_controller.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +11,8 @@ import '../controllers/purchase_invoice_controller.dart';
 import '../models/payment_promise_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class PostDatedPaymentPromiseScreen extends StatefulWidget {
   const PostDatedPaymentPromiseScreen({super.key});
@@ -48,10 +52,9 @@ class _PostDatedPaymentPromiseScreenState
 
     if (!mounted) return;
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: promiseCtrl),
           ChangeNotifierProvider.value(value: invoiceCtrl),
@@ -94,6 +97,7 @@ class _PostDatedPaymentPromiseScreenState
             .where((item) => item.promiseType == 'payment')
             .toList();
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -101,55 +105,53 @@ class _PostDatedPaymentPromiseScreenState
             children: [
               Row(
                 children: [
-                  Text(
-                    'Post Dated Payment Promises',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Text(
+                      'Post Dated Payment Promises',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Payment Promise'),
+                    label: 'New Payment Promise',
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _searchCtrl,
-                      decoration: AppTheme.inputDecoration(
-                        null,
-                        hintText:
-                            'Search by promise ID, vendor, cheque, bank or date',
-                        prefixIcon:
-                            const Icon(Icons.search_outlined, size: 18),
-                        suffixIcon: _searchCtrl.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                padding: EdgeInsets.zero,
-                                onPressed: () =>
-                                    setState(() => _searchCtrl.clear()),
-                              )
-                            : null,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
+              ResponsiveSearchFilterBar(
+                search: TextFormField(
+                  controller: _searchCtrl,
+                  decoration: AppTheme.inputDecoration(
+                    null,
+                    hintText:
+                        'Search by promise ID, vendor, cheque, bank or date',
+                    prefixIcon: const Icon(Icons.search_outlined, size: 18),
+                    suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            padding: EdgeInsets.zero,
+                            tooltip: 'Clear search',
+                            onPressed: () =>
+                                setState(() => _searchCtrl.clear()),
+                          )
+                        : null,
                   ),
-                  const SizedBox(width: 10),
+                  onChanged: (_) => setState(() {}),
+                ),
+                filters: [
                   _FilterChip(
                     label: 'All',
                     selected: _filter == 'all',
                     onTap: () => setState(() => _filter = 'all'),
                   ),
-                  const SizedBox(width: 6),
                   _FilterChip(
                     label: 'Saved',
                     selected: _filter == 'saved',
                     onTap: () => setState(() => _filter = 'saved'),
                   ),
-                  const SizedBox(width: 6),
                   _FilterChip(
                     label: 'Pending',
                     selected: _filter == 'pending',
@@ -158,7 +160,15 @@ class _PostDatedPaymentPromiseScreenState
                 ],
               ),
               const SizedBox(height: 12),
-              if (paymentItems.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (paymentItems.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -187,7 +197,7 @@ class _PostDatedPaymentPromiseScreenState
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -195,6 +205,25 @@ class _PostDatedPaymentPromiseScreenState
                       style: const TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      return RecordCard(
+                        id: item.promiseId,
+                        subtitle: item.vendorName,
+                        meta: AppUtils.formatDate(item.promiseDate),
+                        amount: AppUtils.fmtAmt(item.amount),
+                        badge: _StatusBadge(status: item.status),
+                        onTap: () => _openForm(initial: item),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -226,6 +255,9 @@ class _PostDatedPaymentPromiseScreenState
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -237,13 +269,13 @@ class _PostDatedPaymentPromiseScreenState
                               cells: [
                                 DataCell(Text('${idx + 1}')),
                                 DataCell(Text(item.promiseId)),
-                                DataCell(Text(item.promiseDate)),
+                                DataCell(Text(AppUtils.formatDate(item.promiseDate))),
                                 DataCell(Text(item.vendorName)),
                                 DataCell(
                                   Text('${item.linkedPurchaseIds.length}'),
                                 ),
                                 DataCell(_StatusBadge(status: item.status)),
-                                DataCell(Text(item.amount.toStringAsFixed(0))),
+                                DataCell(Text(AppUtils.fmtAmt(item.amount))),
                               ],
                             );
                           }).toList(),
@@ -371,18 +403,16 @@ class _PaymentPromiseFormDialogState extends State<_PaymentPromiseFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -588,11 +618,14 @@ class _PaymentPromiseFormDialogState extends State<_PaymentPromiseFormDialog> {
                     final purchase = entry.value;
                     final linked = _linkedPurchaseIds.contains(purchase.id);
                     return DataRow(
-                      color: WidgetStateProperty.resolveWith(
-                        (_) => idx.isOdd
+                      color: WidgetStateProperty.resolveWith((states) {
+                        if (states.contains(WidgetState.pressed)) {
+                          return AppTheme.terra50;
+                        }
+                        return idx.isOdd
                             ? AppTheme.clayBg.withValues(alpha: 0.4)
-                            : Colors.transparent,
-                      ),
+                            : Colors.transparent;
+                      }),
                       cells: [
                         DataCell(
                           Checkbox(
@@ -628,7 +661,7 @@ class _PaymentPromiseFormDialogState extends State<_PaymentPromiseFormDialog> {
                           ),
                         ),
                         DataCell(
-                          Text(purchase.totalPayable.toStringAsFixed(0)),
+                          Text(AppUtils.fmtAmt(purchase.totalPayable)),
                         ),
                       ],
                     );

@@ -1,5 +1,7 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/line_item_card.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +11,8 @@ import '../models/cash_voucher_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
 import '../widgets/voucher_line_row.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class CashVoucherScreen extends StatefulWidget {
   const CashVoucherScreen({super.key, required this.voucherType});
@@ -63,10 +67,9 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
   Future<void> _openForm({CashVoucherModel? initial}) async {
     final ctrl = context.read<CashVoucherController>();
     final accountsCtrl = context.read<AccountsController>();
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: ctrl),
           ChangeNotifierProvider.value(value: accountsCtrl),
@@ -97,6 +100,7 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
     return Consumer<CashVoucherController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -104,12 +108,18 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
             children: [
               Row(
                 children: [
-                  Text(_title, style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  Expanded(
+                    child: Text(
+                      _title,
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(_newLabel),
+                    label: _newLabel,
                   ),
                 ],
               ),
@@ -131,7 +141,17 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.where((e) => e.voucherType == widget.voucherType).isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items
+                  .where((e) => e.voucherType == widget.voucherType)
+                  .isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -160,7 +180,7 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -169,6 +189,36 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
                     ),
                   ),
                 )
+              else if (isMobile)
+                Expanded(
+                    child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) {
+                    final item = items[i];
+                    return RecordCard(
+                      id: item.voucherNo,
+                      subtitle: (() {
+                        switch (item.voucherType) {
+                          case 'credit':
+                            return 'Cash Receiving';
+                          case 'debit':
+                            return 'Cash Payment';
+                          case 'journal':
+                            return 'Journal';
+                          default:
+                            return item.voucherType;
+                        }
+                      })(),
+                      meta: AppUtils.formatDate(item.voucherDate),
+                      amount: AppUtils.fmtAmt(item.totalDebit > 0
+                          ? item.totalDebit
+                          : item.totalCredit),
+                      onTap: () => _openForm(initial: item),
+                    );
+                  },
+                ))
               else
                 Expanded(
                   child: SingleChildScrollView(
@@ -199,6 +249,9 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -210,11 +263,14 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
                               cells: [
                                 DataCell(Text('${idx + 1}')),
                                 DataCell(Text(item.voucherNo)),
-                                DataCell(Text(item.voucherDate)),
+                                DataCell(Text(
+                                    AppUtils.formatDate(item.voucherDate))),
                                 DataCell(Text('${item.lines.length}')),
                                 DataCell(
                                   Text(
-                                    item.isConfirmed ? 'Confirmed' : 'Unconfirmed',
+                                    item.isConfirmed
+                                        ? 'Confirmed'
+                                        : 'Unconfirmed',
                                     style: TextStyle(
                                       color: item.isConfirmed
                                           ? AppTheme.successText
@@ -223,8 +279,10 @@ class _CashVoucherScreenState extends State<CashVoucherScreen> {
                                     ),
                                   ),
                                 ),
-                                DataCell(Text(item.totalDebit.toStringAsFixed(0))),
-                                DataCell(Text(item.totalCredit.toStringAsFixed(0))),
+                                DataCell(
+                                    Text(AppUtils.fmtAmt(item.totalDebit))),
+                                DataCell(
+                                    Text(AppUtils.fmtAmt(item.totalCredit))),
                               ],
                             );
                           }).toList(),
@@ -362,18 +420,17 @@ class _CashVoucherFormDialogState extends State<_CashVoucherFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -409,6 +466,7 @@ class _CashVoucherFormDialogState extends State<_CashVoucherFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final showDebit = widget.voucherType != 'credit';
     final showCredit = widget.voucherType != 'debit';
 
@@ -434,9 +492,8 @@ class _CashVoucherFormDialogState extends State<_CashVoucherFormDialog> {
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context,
-                        initialDate:
-                            DateTime.tryParse(_voucherDateCtrl.text) ??
-                                DateTime.now(),
+                        initialDate: DateTime.tryParse(_voucherDateCtrl.text) ??
+                            DateTime.now(),
                         firstDate: DateTime(2000),
                         lastDate: DateTime(2100),
                       );
@@ -486,103 +543,179 @@ class _CashVoucherFormDialogState extends State<_CashVoucherFormDialog> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: AppTheme.cardDecor,
-                    child: HorizontalScrollWheel(
-                      child: DataTable(
-                        headingRowColor:
-                            WidgetStateProperty.all(AppTheme.clayBg),
-                        columnSpacing: AppTheme.tableColSpacing,
-                        horizontalMargin: AppTheme.tableHMargin,
-                        dataRowMinHeight: AppTheme.tableRowMin,
-                        dataRowMaxHeight: AppTheme.tableRowMax,
-                        headingRowHeight: AppTheme.tableHeadingH,
-                        columns: [
-                          const DataColumn(label: Text('#')),
-                          const DataColumn(label: Text('Account No')),
-                          const DataColumn(label: Text('Account Name')),
-                          if (showDebit) const DataColumn(label: Text('Debit')),
-                          if (showCredit) const DataColumn(label: Text('Credit')),
-                          const DataColumn(label: Text('Narration')),
-                          const DataColumn(label: Text('')),
-                        ],
-                        rows: lines.asMap().entries.map((entry) {
-                          final idx = entry.key;
-                          final line = entry.value;
-                          return DataRow(
-                            color: WidgetStateProperty.resolveWith(
-                              (states) => idx.isOdd
-                                  ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                  : Colors.transparent,
-                            ),
-                            cells: [
-                              DataCell(Text('${idx + 1}')),
-                              DataCell(Text('${line['accountCode'] ?? ''}')),
-                              DataCell(Text('${line['accountName'] ?? ''}')),
-                              if (showDebit)
-                                DataCell(
-                                  Text(
-                                    ((line['debit'] as num?)?.toDouble() ?? 0)
-                                        .toStringAsFixed(2),
-                                  ),
-                                ),
-                              if (showCredit)
-                                DataCell(
-                                  Text(
-                                    ((line['credit'] as num?)?.toDouble() ?? 0)
-                                        .toStringAsFixed(2),
-                                  ),
-                                ),
-                              DataCell(Text('${line['narration'] ?? ''}')),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.edit_outlined,
-                                        size: 16,
-                                        color: AppTheme.terra600,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      tooltip: 'Edit',
-                                      onPressed: () {
-                                        final updated = [...lines];
-                                        final selected = updated.removeAt(idx);
-                                        _linesNotifier.value = updated;
-                                        setState(() {
-                                          _editingLine = selected;
-                                          _lineRowKey++;
-                                        });
-                                      },
-                                    ),
-                                    const SizedBox(width: 6),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        size: 16,
-                                        color: AppTheme.dangerText,
-                                      ),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      tooltip: 'Delete',
-                                      onPressed: () {
-                                        final updated = [...lines];
-                                        updated.removeAt(idx);
-                                        _linesNotifier.value = updated;
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                  if (isMobile)
+                    Column(
+                      children: lines.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final line = entry.value;
+                        final debit =
+                            ((line['debit'] as num?)?.toDouble() ?? 0);
+                        final credit =
+                            ((line['credit'] as num?)?.toDouble() ?? 0);
+                        final amount = debit > 0 ? debit : credit;
+                        final amountLabel = debit > 0 ? 'Debit' : 'Credit';
+                        final narration = '${line['narration'] ?? ''}';
+                        final detailSegments = <String>[];
+                        final accountCode = '${line['accountCode'] ?? ''}';
+                        if (accountCode.isNotEmpty) {
+                          detailSegments.add('A/C $accountCode');
+                        }
+                        if (showDebit && debit > 0) {
+                          detailSegments.add(
+                            'Debit ${AppUtils.fmtAmt2(debit)}',
                           );
-                        }).toList(),
+                        }
+                        if (showCredit && credit > 0) {
+                          detailSegments.add(
+                            'Credit ${AppUtils.fmtAmt2(credit)}',
+                          );
+                        }
+                        if (narration.isNotEmpty) {
+                          detailSegments.add(narration);
+                        }
+                        final detailLine = detailSegments.join('  ·  ');
+                        final displayItem = {
+                          'productName': line['accountName'] ?? '',
+                          'packingName': '',
+                          'qtyPacks': null,
+                          'qtyLoose': null,
+                          'price': amount,
+                          'discPercent': 0,
+                          'lineGross': amount,
+                        };
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: idx == lines.length - 1 ? 0 : 8,
+                          ),
+                          child: LineItemCard(
+                            index: idx,
+                            item: displayItem,
+                            detailLine: detailLine.isNotEmpty
+                                ? detailLine
+                                : amountLabel,
+                            onEdit: () {
+                              final updated = [...lines];
+                              final selected = updated.removeAt(idx);
+                              _linesNotifier.value = updated;
+                              setState(() {
+                                _editingLine = selected;
+                                _lineRowKey++;
+                              });
+                            },
+                            onDelete: () {
+                              final updated = [...lines];
+                              updated.removeAt(idx);
+                              _linesNotifier.value = updated;
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      decoration: AppTheme.cardDecor,
+                      child: HorizontalScrollWheel(
+                        child: DataTable(
+                          headingRowColor:
+                              WidgetStateProperty.all(AppTheme.clayBg),
+                          columnSpacing: AppTheme.tableColSpacing,
+                          horizontalMargin: AppTheme.tableHMargin,
+                          dataRowMinHeight: AppTheme.tableRowMin,
+                          dataRowMaxHeight: AppTheme.tableRowMax,
+                          headingRowHeight: AppTheme.tableHeadingH,
+                          columns: [
+                            const DataColumn(label: Text('#')),
+                            const DataColumn(label: Text('Account No')),
+                            const DataColumn(label: Text('Account Name')),
+                            if (showDebit)
+                              const DataColumn(label: Text('Debit')),
+                            if (showCredit)
+                              const DataColumn(label: Text('Credit')),
+                            const DataColumn(label: Text('Narration')),
+                            const DataColumn(label: Text('')),
+                          ],
+                          rows: lines.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final line = entry.value;
+                            return DataRow(
+                              color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
+                                return idx.isOdd
+                                    ? AppTheme.clayBg.withValues(alpha: 0.5)
+                                    : Colors.transparent;
+                              }),
+                              cells: [
+                                DataCell(Text('${idx + 1}')),
+                                DataCell(Text('${line['accountCode'] ?? ''}')),
+                                DataCell(Text('${line['accountName'] ?? ''}')),
+                                if (showDebit)
+                                  DataCell(
+                                    Text(
+                                      ((line['debit'] as num?)?.toDouble() ?? 0)
+                                          .toStringAsFixed(2),
+                                    ),
+                                  ),
+                                if (showCredit)
+                                  DataCell(
+                                    Text(
+                                      ((line['credit'] as num?)?.toDouble() ??
+                                              0)
+                                          .toStringAsFixed(2),
+                                    ),
+                                  ),
+                                DataCell(Text('${line['narration'] ?? ''}')),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 16,
+                                          color: AppTheme.terra600,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        tooltip: 'Edit',
+                                        onPressed: () {
+                                          final updated = [...lines];
+                                          final selected =
+                                              updated.removeAt(idx);
+                                          _linesNotifier.value = updated;
+                                          setState(() {
+                                            _editingLine = selected;
+                                            _lineRowKey++;
+                                          });
+                                        },
+                                      ),
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 16,
+                                          color: AppTheme.dangerText,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        tooltip: 'Delete',
+                                        onPressed: () {
+                                          final updated = [...lines];
+                                          updated.removeAt(idx);
+                                          _linesNotifier.value = updated;
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 8),
                   Container(
                     color: AppTheme.clayBg,

@@ -13,7 +13,7 @@ class CashVoucherController extends ChangeNotifier {
 
   final CashVoucherService _service;
   List<CashVoucherModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

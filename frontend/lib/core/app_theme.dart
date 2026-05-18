@@ -77,8 +77,8 @@ class AppTheme {
   static EdgeInsets pagePadding(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     return EdgeInsets.symmetric(
-      horizontal: isMobile ? 16 : 24,
-      vertical: 20,
+      horizontal: isMobile ? 12 : 24,
+      vertical: isMobile ? 12 : 20,
     );
   }
 

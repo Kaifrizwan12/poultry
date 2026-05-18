@@ -13,7 +13,7 @@ class SalesInvoiceController extends ChangeNotifier {
 
   final SalesInvoiceService _service;
   List<SalesInvoiceModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

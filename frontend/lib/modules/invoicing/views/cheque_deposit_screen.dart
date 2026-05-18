@@ -1,4 +1,5 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,8 @@ import '../controllers/bank_deposit_controller.dart';
 import '../models/bank_deposit_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class ChequeDepositScreen extends StatefulWidget {
   const ChequeDepositScreen({super.key});
@@ -35,10 +38,9 @@ class _ChequeDepositScreenState extends State<ChequeDepositScreen> {
   }
 
   Future<void> _openForm({BankDepositModel? initial}) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: context.read<BankDepositController>()),
           ChangeNotifierProvider.value(value: context.read<AccountsController>()),
@@ -66,6 +68,7 @@ class _ChequeDepositScreenState extends State<ChequeDepositScreen> {
     return Consumer<BankDepositController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -73,12 +76,18 @@ class _ChequeDepositScreenState extends State<ChequeDepositScreen> {
             children: [
               Row(
                 children: [
-                  Text('Cheque Deposit in Bank', style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  Expanded(
+                    child: Text(
+                      'Cheque Deposit in Bank',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Cheque Deposit'),
+                    label: 'New Cheque Deposit',
                   ),
                 ],
               ),
@@ -100,7 +109,15 @@ class _ChequeDepositScreenState extends State<ChequeDepositScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.where((e) => e.depositType == 'cheque').isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.where((e) => e.depositType == 'cheque').isEmpty)
                 Expanded(
                   child: Center(
                     child: ElevatedButton.icon(
@@ -110,8 +127,26 @@ class _ChequeDepositScreenState extends State<ChequeDepositScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 const Expanded(child: Center(child: Text('No matching cheque deposits found.', style: TextStyle(color: AppTheme.textSecondary))))
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      return RecordCard(
+                        id: item.depositId,
+                        subtitle: '${item.bankAccountName}  ·  ${item.chequeNo}',
+                        meta: AppUtils.formatDate(item.depositDate),
+                        amount: AppUtils.fmtAmt(item.amount),
+                        onTap: () => _openForm(initial: item),
+                      );
+                    },
+                  )
+                )
               else
                 Expanded(
                   child: SingleChildScrollView(
@@ -139,16 +174,23 @@ class _ChequeDepositScreenState extends State<ChequeDepositScreen> {
                           final idx = entry.key;
                           final item = entry.value;
                           return DataRow(
-                            color: WidgetStateProperty.resolveWith((states) => idx.isOdd ? AppTheme.clayBg.withValues(alpha: 0.4) : Colors.transparent),
+                            color: WidgetStateProperty.resolveWith((states) {
+                              if (states.contains(WidgetState.pressed)) {
+                                return AppTheme.terra50;
+                              }
+                              return idx.isOdd
+                                  ? AppTheme.clayBg.withValues(alpha: 0.4)
+                                  : Colors.transparent;
+                            }),
                             onSelectChanged: (_) => _openForm(initial: item),
                             cells: [
                               DataCell(Text('${idx + 1}')),
                               DataCell(Text(item.depositId)),
-                              DataCell(Text(item.depositDate)),
+                              DataCell(Text(AppUtils.formatDate(item.depositDate))),
                               DataCell(Text(item.bankAccountName)),
                               DataCell(Text(item.chequeNo)),
                               DataCell(Text(item.drawerName)),
-                              DataCell(Text(item.amount.toStringAsFixed(0))),
+                              DataCell(Text(AppUtils.fmtAmt(item.amount))),
                             ],
                           );
                         }).toList(),
@@ -274,18 +316,16 @@ class _ChequeDepositFormDialogState extends State<_ChequeDepositFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 

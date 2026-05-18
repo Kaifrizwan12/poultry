@@ -1,4 +1,6 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/detail_line_card.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/customers_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/packings_controller.dart';
@@ -11,6 +13,8 @@ import '../controllers/expiry_claim_controller.dart';
 import '../models/expiry_claim_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class ExpiryClaimScreen extends StatefulWidget {
   const ExpiryClaimScreen({super.key, required this.direction});
@@ -41,10 +45,9 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
   }
 
   Future<void> _openForm({ExpiryClaimModel? initial}) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(
             value: context.read<ExpiryClaimController>(),
@@ -52,7 +55,8 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
           ChangeNotifierProvider.value(
             value: context.read<CustomersController>(),
           ),
-          ChangeNotifierProvider.value(value: context.read<VendorsController>()),
+          ChangeNotifierProvider.value(
+              value: context.read<VendorsController>()),
           ChangeNotifierProvider.value(
             value: context.read<ProductsController>(),
           ),
@@ -70,9 +74,8 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
 
   List<ExpiryClaimModel> _visibleItems(ExpiryClaimController ctrl) {
     final q = _searchCtrl.text.trim().toLowerCase();
-    final items = ctrl.items
-        .where((item) => item.direction == widget.direction)
-        .toList();
+    final items =
+        ctrl.items.where((item) => item.direction == widget.direction).toList();
     if (q.isEmpty) return items;
     return items.where((item) {
       final party = widget.direction == 'from_customer'
@@ -97,6 +100,7 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
             .where((item) => item.direction == widget.direction)
             .toList();
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -104,12 +108,18 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
             children: [
               Row(
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Claim'),
+                    label: 'New Claim',
                   ),
                 ],
               ),
@@ -118,7 +128,8 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
                 controller: _searchCtrl,
                 decoration: AppTheme.inputDecoration(
                   null,
-                  hintText: 'Search by claim ID, party, claim date or reply date',
+                  hintText:
+                      'Search by claim ID, party, claim date or reply date',
                   prefixIcon: const Icon(Icons.search_outlined, size: 18),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
@@ -131,7 +142,15 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (scopedItems.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (scopedItems.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -162,7 +181,7 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -171,6 +190,26 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
                     ),
                   ),
                 )
+              else if (isMobile)
+                Expanded(
+                    child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) {
+                    final item = items[i];
+                    final party = item.direction == 'from_customer'
+                        ? item.customerName
+                        : item.vendorName;
+                    return RecordCard(
+                      id: item.claimId,
+                      subtitle: party,
+                      meta: AppUtils.formatDate(item.claimDate),
+                      amount: AppUtils.fmtAmt(item.netValue),
+                      onTap: () => _openForm(initial: item),
+                    );
+                  },
+                ))
               else
                 Expanded(
                   child: SingleChildScrollView(
@@ -193,9 +232,12 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
                             DataColumn(label: Text('Party')),
                             DataColumn(label: Text('Claim Date')),
                             DataColumn(label: Text('Reply Date')),
-                            DataColumn(label: Text('Claim Items'), numeric: true),
-                            DataColumn(label: Text('Reply Items'), numeric: true),
-                            DataColumn(label: Text('Claim Value'), numeric: true),
+                            DataColumn(
+                                label: Text('Claim Items'), numeric: true),
+                            DataColumn(
+                                label: Text('Reply Items'), numeric: true),
+                            DataColumn(
+                                label: Text('Claim Value'), numeric: true),
                           ],
                           rows: items.asMap().entries.map((entry) {
                             final idx = entry.key;
@@ -205,6 +247,9 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
                                 : item.vendorName;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -217,15 +262,18 @@ class _ExpiryClaimScreenState extends State<ExpiryClaimScreen> {
                                 DataCell(Text('${idx + 1}')),
                                 DataCell(Text(item.claimId)),
                                 DataCell(Text(party)),
-                                DataCell(Text(item.claimDate)),
+                                DataCell(
+                                    Text(AppUtils.formatDate(item.claimDate))),
                                 DataCell(
                                   Text(
-                                    item.replyDate.isEmpty ? '—' : item.replyDate,
+                                    item.replyDate.isEmpty
+                                        ? '—'
+                                        : item.replyDate,
                                   ),
                                 ),
                                 DataCell(Text('${item.items.length}')),
                                 DataCell(Text('${item.replyItems.length}')),
-                                DataCell(Text(item.netValue.toStringAsFixed(0))),
+                                DataCell(Text(AppUtils.fmtAmt(item.netValue))),
                               ],
                             );
                           }).toList(),
@@ -323,9 +371,8 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
     _claimDateCtrl.text = model.claimDate;
     _replyDateCtrl.text = model.replyDate;
     _repliedAmountCtrl.text = model.repliedAmount.toStringAsFixed(2);
-    _claimItemsNotifier.value = model.items
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList();
+    _claimItemsNotifier.value =
+        model.items.map((item) => Map<String, dynamic>.from(item)).toList();
     _replyItemsNotifier.value = model.replyItems
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
@@ -458,9 +505,11 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
     final damLoose = double.tryParse(_cDamLCtrl.text) ?? 0;
     final price = double.tryParse(_claimPriceCtrl.text) ?? 0;
     setState(() {
-      _claimLineValue =
-          (expPacks * _claimPack + expLoose + damPacks * _claimPack + damLoose) *
-              price;
+      _claimLineValue = (expPacks * _claimPack +
+              expLoose +
+              damPacks * _claimPack +
+              damLoose) *
+          price;
     });
   }
 
@@ -639,18 +688,17 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -691,6 +739,7 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
     final customers = context.watch<CustomersController>().typedItems;
     final vendors = context.watch<VendorsController>().typedItems;
     final isFromCustomer = widget.direction == 'from_customer';
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return InvoicingFormDialog(
       title: isFromCustomer
@@ -717,9 +766,8 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context,
-                        initialDate:
-                            DateTime.tryParse(_claimDateCtrl.text) ??
-                                DateTime.now(),
+                        initialDate: DateTime.tryParse(_claimDateCtrl.text) ??
+                            DateTime.now(),
                         firstDate: DateTime(2000),
                         lastDate: DateTime(2100),
                       );
@@ -944,6 +992,41 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
                   ),
                 );
               }
+              if (isMobile) {
+                return Column(
+                  children: items.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    final price = (item['price'] as num?)?.toDouble() ?? 0;
+                    final value = (item['value'] as num?)?.toDouble() ?? 0;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: idx == items.length - 1 ? 0 : 8,
+                      ),
+                      child: DetailLineCard(
+                        index: idx,
+                        title: '${item['productName'] ?? ''}',
+                        subtitle: '${item['packingName'] ?? ''}',
+                        amount: AppUtils.fmtAmt2(value),
+                        amountLabel: 'Price ${AppUtils.fmtAmt2(price)}',
+                        chips: [
+                          'Pack ${item['pack'] ?? ''}',
+                          'Exp(P) ${item['expQtyPacks'] ?? ''}',
+                          'Exp(L) ${item['expQtyLoose'] ?? ''}',
+                          'Dam(P) ${item['damQtyPacks'] ?? ''}',
+                          'Dam(L) ${item['damQtyLoose'] ?? ''}',
+                        ],
+                        onEdit: () => _startEditingClaimItem(idx, item),
+                        onDelete: () {
+                          final updatedItems = [...items];
+                          updatedItems.removeAt(idx);
+                          _claimItemsNotifier.value = updatedItems;
+                        },
+                      ),
+                    );
+                  }).toList(),
+                );
+              }
               return Container(
                 width: double.infinity,
                 decoration: AppTheme.cardDecor,
@@ -969,11 +1052,14 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
                       final idx = entry.key;
                       final item = entry.value;
                       return DataRow(
-                        color: WidgetStateProperty.resolveWith(
-                          (states) => idx.isOdd
+                        color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
                               ? AppTheme.clayBg.withValues(alpha: 0.5)
-                              : Colors.transparent,
-                        ),
+                              : Colors.transparent;
+                        }),
                         cells: [
                           DataCell(Text('${idx + 1}')),
                           DataCell(Text('${item['productName'] ?? ''}')),
@@ -1205,6 +1291,38 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
                   ),
                 );
               }
+              if (isMobile) {
+                return Column(
+                  children: items.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    final price = (item['price'] as num?)?.toDouble() ?? 0;
+                    final value = (item['value'] as num?)?.toDouble() ?? 0;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: idx == items.length - 1 ? 0 : 8,
+                      ),
+                      child: DetailLineCard(
+                        index: idx,
+                        title: '${item['productName'] ?? ''}',
+                        amount: AppUtils.fmtAmt2(value),
+                        amountLabel: 'Price ${AppUtils.fmtAmt2(price)}',
+                        chips: [
+                          'Pack ${item['pack'] ?? ''}',
+                          'Qty(P) ${item['qtyPacks'] ?? ''}',
+                          'Qty(L) ${item['qtyLoose'] ?? ''}',
+                        ],
+                        onEdit: () => _startEditingReplyItem(idx, item),
+                        onDelete: () {
+                          final updatedItems = [...items];
+                          updatedItems.removeAt(idx);
+                          _replyItemsNotifier.value = updatedItems;
+                        },
+                      ),
+                    );
+                  }).toList(),
+                );
+              }
               return Container(
                 width: double.infinity,
                 decoration: AppTheme.cardDecor,
@@ -1229,11 +1347,14 @@ class _ExpiryClaimFormDialogState extends State<_ExpiryClaimFormDialog> {
                       final idx = entry.key;
                       final item = entry.value;
                       return DataRow(
-                        color: WidgetStateProperty.resolveWith(
-                          (states) => idx.isOdd
+                        color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
                               ? AppTheme.clayBg.withValues(alpha: 0.5)
-                              : Colors.transparent,
-                        ),
+                              : Colors.transparent;
+                        }),
                         cells: [
                           DataCell(Text('${idx + 1}')),
                           DataCell(Text('${item['productName'] ?? ''}')),

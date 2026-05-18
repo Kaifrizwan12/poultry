@@ -16,7 +16,7 @@ import 'package:flutter/material.dart';
 ///   title: 'Sales Invoices',
 ///   getBusinessId: (m) => m.saleId,
 ///   getTitle: (m) => '${m.saleId}  •  ${m.customerName}',
-///   getSubtitle: (m) => '${m.entryDate.substring(0,10)}  |  ${m.status}  |  Rs ${m.totalPayable.toStringAsFixed(0)}',
+///   getSubtitle: (m) => '${m.entryDate.substring(0,10)}  |  ${m.status}  |  PKR ${m.totalPayable.toStringAsFixed(0)}',
 ///   statusField: 'status',   // optional — enables Pending tab
 /// );
 /// if (record != null) _loadFromModel(record);
@@ -37,6 +37,7 @@ class RecordBrowserDialog<T extends BaseSettingsModel> extends StatefulWidget {
   final String Function(T) getBusinessId;
   final String Function(T) getTitle;
   final String Function(T) getSubtitle;
+
   /// If provided, a "Pending" tab is shown filtering on status == 'pending'
   final String? statusField;
 
@@ -69,7 +70,7 @@ class RecordBrowserDialog<T extends BaseSettingsModel> extends StatefulWidget {
 class _RecordBrowserDialogState<T extends BaseSettingsModel>
     extends State<RecordBrowserDialog<T>> {
   final _searchCtrl = TextEditingController();
-  String _query   = '';
+  String _query = '';
   bool _pendingOnly = false;
 
   @override
@@ -82,15 +83,16 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
     var list = widget.records;
 
     if (_pendingOnly && widget.statusField != null) {
-      list = list.where((m) => m.text(widget.statusField!) == 'pending').toList();
+      list =
+          list.where((m) => m.text(widget.statusField!) == 'pending').toList();
     }
 
     if (_query.isNotEmpty) {
       final q = _query.toLowerCase();
       list = list.where((m) {
         return widget.getBusinessId(m).toLowerCase().contains(q) ||
-               widget.getTitle(m).toLowerCase().contains(q) ||
-               widget.getSubtitle(m).toLowerCase().contains(q);
+            widget.getTitle(m).toLowerCase().contains(q) ||
+            widget.getSubtitle(m).toLowerCase().contains(q);
       }).toList();
     }
 
@@ -118,13 +120,14 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
               decoration: BoxDecoration(
                 color: AppTheme.clayBg,
                 borderRadius: BorderRadius.only(
-                  topLeft:  Radius.circular(AppTheme.dialogRadius.topLeft.x),
+                  topLeft: Radius.circular(AppTheme.dialogRadius.topLeft.x),
                   topRight: Radius.circular(AppTheme.dialogRadius.topRight.x),
                 ),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.folder_open_outlined, size: 20, color: AppTheme.terra600),
+                  const Icon(Icons.folder_open_outlined,
+                      size: 20, color: AppTheme.terra600),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(widget.title,
@@ -134,7 +137,8 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                             color: AppTheme.textPrimary)),
                   ),
                   Text('${widget.records.length} records',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary)),
                   const SizedBox(width: 12),
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
@@ -173,17 +177,22 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.inputRadius),
-                          borderSide: const BorderSide(color: AppTheme.softBorder),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.inputRadius),
+                          borderSide:
+                              const BorderSide(color: AppTheme.softBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.inputRadius),
-                          borderSide: const BorderSide(color: AppTheme.softBorder),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.inputRadius),
+                          borderSide:
+                              const BorderSide(color: AppTheme.softBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppTheme.inputRadius),
-                          borderSide:
-                              const BorderSide(color: AppTheme.terra400, width: 1.4),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.inputRadius),
+                          borderSide: const BorderSide(
+                              color: AppTheme.terra400, width: 1.4),
                         ),
                       ),
                       onChanged: (v) => setState(() => _query = v),
@@ -197,12 +206,17 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                       selectedColor: AppTheme.terra100,
                       backgroundColor: AppTheme.surfaceWhite,
                       side: BorderSide(
-                        color: _pendingOnly ? AppTheme.terra400 : AppTheme.softBorder,
+                        color: _pendingOnly
+                            ? AppTheme.terra400
+                            : AppTheme.softBorder,
                       ),
                       labelStyle: TextStyle(
                         fontSize: 12,
-                        color: _pendingOnly ? AppTheme.terra800 : AppTheme.textSecondary,
-                        fontWeight: _pendingOnly ? FontWeight.w700 : FontWeight.w500,
+                        color: _pendingOnly
+                            ? AppTheme.terra800
+                            : AppTheme.textSecondary,
+                        fontWeight:
+                            _pendingOnly ? FontWeight.w700 : FontWeight.w500,
                       ),
                       onSelected: (v) => setState(() => _pendingOnly = v),
                     ),
@@ -216,7 +230,8 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
               child: Text(
                 '${filtered.length} record${filtered.length == 1 ? '' : 's'}'
                 '${_query.isNotEmpty ? ' matching "$_query"' : ''}',
-                style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary),
+                style:
+                    const TextStyle(fontSize: 11, color: AppTheme.textTertiary),
               ),
             ),
             const Divider(height: 1, color: AppTheme.pageDivider),
@@ -227,8 +242,8 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.search_off, size: 36,
-                              color: AppTheme.textTertiary),
+                          const Icon(Icons.search_off,
+                              size: 36, color: AppTheme.textTertiary),
                           const SizedBox(height: 8),
                           Text(
                             _query.isNotEmpty
@@ -236,7 +251,8 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                                 : _pendingOnly
                                     ? 'No pending records'
                                     : 'No records yet',
-                            style: const TextStyle(color: AppTheme.textSecondary),
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary),
                           ),
                         ],
                       ),
@@ -244,14 +260,16 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                   : ListView.separated(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       itemCount: filtered.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, indent: 16, endIndent: 16,
-                              color: AppTheme.pageDivider),
+                      separatorBuilder: (_, __) => const Divider(
+                          height: 1,
+                          indent: 16,
+                          endIndent: 16,
+                          color: AppTheme.pageDivider),
                       itemBuilder: (context, idx) {
                         final record = filtered[idx];
-                        final bizId  = widget.getBusinessId(record);
-                        final title  = widget.getTitle(record);
-                        final sub    = widget.getSubtitle(record);
+                        final bizId = widget.getBusinessId(record);
+                        final title = widget.getTitle(record);
+                        final sub = widget.getSubtitle(record);
                         final isPending = widget.statusField != null &&
                             record.text(widget.statusField!) == 'pending';
 
@@ -269,7 +287,8 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                                   decoration: BoxDecoration(
                                     color: AppTheme.terra50,
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: AppTheme.terra200),
+                                    border:
+                                        Border.all(color: AppTheme.terra200),
                                   ),
                                   child: Text(
                                     bizId.isNotEmpty ? bizId : '—',
@@ -284,7 +303,8 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(title,
                                           style: const TextStyle(
@@ -335,7 +355,8 @@ class _RecordBrowserDialogState<T extends BaseSettingsModel>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('Tap a record to open it.',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textTertiary)),
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.textTertiary)),
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Cancel'),

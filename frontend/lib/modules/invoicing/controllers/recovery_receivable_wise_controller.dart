@@ -13,7 +13,7 @@ class RecoveryReceivableWiseController extends ChangeNotifier {
 
   final RecoveryReceivableWiseService _service;
   List<RecoveryReceivableWiseModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

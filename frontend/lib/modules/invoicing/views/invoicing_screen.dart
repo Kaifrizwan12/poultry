@@ -59,14 +59,20 @@ class _InvoicingChipBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           for (final group in groups) ...[
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
+            Container(
+              margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.clayBg,
+                borderRadius: BorderRadius.circular(6),
+              ),
               child: Text(
                 group.title,
                 style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                   color: AppTheme.textSecondary,
+                  letterSpacing: 0.4,
                 ),
               ),
             ),
@@ -98,7 +104,7 @@ class _InvoicingChipBar extends StatelessWidget {
                   onSelected: (_) => nav.selectSection(item.section),
                 ),
               ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
           ],
         ],
       ),
@@ -160,18 +166,19 @@ class _MobileInvoicingLayout extends StatelessWidget {
     final isMenu = nav.showMobileMenu;
 
     if (!isMenu) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(_labelFor(nav.selectedSection)),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: nav.goBackToMenu,
+      return Column(
+        children: [
+          _MobileSubPageHeader(
+            title: _labelFor(nav.selectedSection),
+            onBack: nav.goBackToMenu,
           ),
-        ),
-        body: Padding(
-          padding: AppTheme.pagePadding(context),
-          child: _InvoicingContentArea(nav: nav),
-        ),
+          Expanded(
+            child: Padding(
+              padding: AppTheme.pagePadding(context),
+              child: _InvoicingContentArea(nav: nav),
+            ),
+          ),
+        ],
       );
     }
 
@@ -208,6 +215,26 @@ class _MobileInvoicingLayout extends StatelessWidget {
   }
 
   String _labelFor(InvoicingSection section) {
+    switch (section) {
+      case InvoicingSection.purchaseReturnWithInvoice:
+        return 'Purchase Return (Inv)';
+      case InvoicingSection.purchaseReturnWithoutInvoice:
+        return 'Purchase Return (No Inv)';
+      case InvoicingSection.salesReturnWithInvoice:
+        return 'Sales Return (Inv)';
+      case InvoicingSection.salesReturnWithoutInvoice:
+        return 'Sales Return (No Inv)';
+      case InvoicingSection.stockIssueToSalesman:
+        return 'Stock Issue';
+      case InvoicingSection.stockReturnFromSalesman:
+        return 'Stock Return';
+      case InvoicingSection.expiryClaimFromCustomer:
+        return 'Expiry Claim (Cust)';
+      case InvoicingSection.expiryClaimToVendor:
+        return 'Expiry Claim (Vendor)';
+      default:
+        break;
+    }
     for (final g in invoicingScreenGroups()) {
       for (final i in g.items) {
         if (i.section == section) return i.label;
@@ -229,6 +256,46 @@ class _ComingSoonPlaceholder extends StatelessWidget {
       child: Text(
         '$label — coming soon',
         style: Theme.of(context).textTheme.titleMedium,
+      ),
+    );
+  }
+}
+
+// ─── Mobile sub-page header (replaces nested Scaffold AppBar) ─────────────────
+
+class _MobileSubPageHeader extends StatelessWidget {
+  const _MobileSubPageHeader({required this.title, required this.onBack});
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).appBarTheme.backgroundColor ??
+        Theme.of(context).colorScheme.surface;
+    return Material(
+      color: bg,
+      elevation: 1,
+      child: SizedBox(
+        height: kToolbarHeight,
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+              onPressed: onBack,
+            ),
+            Expanded(
+              child: Text(
+                title,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

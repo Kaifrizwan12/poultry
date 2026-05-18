@@ -1,4 +1,6 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/detail_line_card.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/customers_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
@@ -10,6 +12,9 @@ import '../controllers/sales_invoice_controller.dart';
 import '../models/recovery_invoice_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class RecoveryInvoiceScreen extends StatefulWidget {
   const RecoveryInvoiceScreen({super.key});
@@ -38,10 +43,9 @@ class _RecoveryInvoiceScreenState extends State<RecoveryInvoiceScreen> {
   }
 
   Future<void> _openForm({RecoveryInvoiceModel? initial}) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(
             value: context.read<RecoveryInvoiceController>(),
@@ -76,6 +80,7 @@ class _RecoveryInvoiceScreenState extends State<RecoveryInvoiceScreen> {
     return Consumer<RecoveryInvoiceController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -83,15 +88,18 @@ class _RecoveryInvoiceScreenState extends State<RecoveryInvoiceScreen> {
             children: [
               Row(
                 children: [
-                  Text(
-                    'Recovery Invoices',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Text(
+                      'Recovery Invoices',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Recovery'),
+                    label: 'New Recovery',
                   ),
                 ],
               ),
@@ -113,7 +121,25 @@ class _RecoveryInvoiceScreenState extends State<RecoveryInvoiceScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -142,7 +168,7 @@ class _RecoveryInvoiceScreenState extends State<RecoveryInvoiceScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -151,6 +177,23 @@ class _RecoveryInvoiceScreenState extends State<RecoveryInvoiceScreen> {
                     ),
                   ),
                 )
+              else if (isMobile)
+                Expanded(
+                    child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) {
+                    final item = items[i];
+                    return RecordCard(
+                      id: item.recoveryId,
+                      subtitle: item.salesmanName,
+                      meta: AppUtils.formatDate(item.date),
+                      amount: AppUtils.fmtAmt(item.amount),
+                      onTap: () => _openForm(initial: item),
+                    );
+                  },
+                ))
               else
                 Expanded(
                   child: SingleChildScrollView(
@@ -181,6 +224,9 @@ class _RecoveryInvoiceScreenState extends State<RecoveryInvoiceScreen> {
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -192,14 +238,14 @@ class _RecoveryInvoiceScreenState extends State<RecoveryInvoiceScreen> {
                               cells: [
                                 DataCell(Text('${idx + 1}')),
                                 DataCell(Text(item.recoveryId)),
-                                DataCell(Text(item.date)),
+                                DataCell(Text(AppUtils.formatDate(item.date))),
                                 DataCell(Text(item.salesmanName)),
                                 DataCell(
                                   Text('${item.customerRecoveries.length}'),
                                 ),
-                                DataCell(Text(item.amount.toStringAsFixed(0))),
+                                DataCell(Text(AppUtils.fmtAmt(item.amount))),
                                 DataCell(
-                                  Text(item.discount.toStringAsFixed(0)),
+                                  Text(AppUtils.fmtAmt(item.discount)),
                                 ),
                               ],
                             );
@@ -227,7 +273,8 @@ class _RecoveryInvoiceFormDialog extends StatefulWidget {
       _RecoveryInvoiceFormDialogState();
 }
 
-class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> {
+class _RecoveryInvoiceFormDialogState
+    extends State<_RecoveryInvoiceFormDialog> {
   String? _currentId;
   bool _isSaving = false;
   final ValueNotifier<List<Map<String, dynamic>>> _entriesNotifier =
@@ -278,7 +325,8 @@ class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> 
     _salesmanId = m.salesmanId;
     _dateCtrl.text = m.date;
     _salesmanNameCtrl.text = m.salesmanName;
-    _entriesNotifier.value = List<Map<String, dynamic>>.from(m.customerRecoveries);
+    _entriesNotifier.value =
+        List<Map<String, dynamic>>.from(m.customerRecoveries);
   }
 
   void _resetEntryRow() {
@@ -397,6 +445,20 @@ class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> 
   }
 
   Future<void> _save() async {
+    if (_salesmanId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a salesman')));
+      }
+      return;
+    }
+    if (_entriesNotifier.value.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please add at least one item')));
+      }
+      return;
+    }
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
@@ -410,18 +472,17 @@ class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> 
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -460,6 +521,7 @@ class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> 
     final salesmen = context.watch<SalesmenController>().typedItems;
     final customers = context.watch<CustomersController>().typedItems;
     final salesInvoices = context.watch<SalesInvoiceController>().items;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return InvoicingFormDialog(
       title: 'Recovery Invoice',
@@ -486,8 +548,7 @@ class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> 
                       final picked = await showDatePicker(
                         context: context,
                         initialDate:
-                            DateTime.tryParse(_dateCtrl.text) ??
-                                DateTime.now(),
+                            DateTime.tryParse(_dateCtrl.text) ?? DateTime.now(),
                         firstDate: DateTime(2000),
                         lastDate: DateTime(2100),
                       );
@@ -520,9 +581,8 @@ class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> 
                     onChanged: (val) {
                       if (val == null) return;
                       setState(() => _salesmanId = val);
-                      _salesmanNameCtrl.text = salesmen
-                          .firstWhere((s) => s.id == val)
-                          .text('name');
+                      _salesmanNameCtrl.text =
+                          salesmen.firstWhere((s) => s.id == val).text('name');
                     },
                   ),
                 ),
@@ -567,9 +627,8 @@ class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> 
                         _entrySaleDisplayId = '';
                         _entrySaleValue = 0;
                       });
-                      _entryCustomerNameCtrl.text = customers
-                          .firstWhere((c) => c.id == val)
-                          .text('name');
+                      _entryCustomerNameCtrl.text =
+                          customers.firstWhere((c) => c.id == val).text('name');
                       _entrySaleValueCtrl.text = '0.00';
                     },
                   ),
@@ -692,163 +751,265 @@ class _RecoveryInvoiceFormDialogState extends State<_RecoveryInvoiceFormDialog> 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: AppTheme.cardDecor,
-                    child: HorizontalScrollWheel(
-                      child: DataTable(
-                        headingRowColor:
-                            WidgetStateProperty.all(AppTheme.clayBg),
-                        columnSpacing: AppTheme.tableColSpacing,
-                        horizontalMargin: AppTheme.tableHMargin,
-                        dataRowMinHeight: AppTheme.tableRowMin,
-                        dataRowMaxHeight: AppTheme.tableRowMax,
-                        headingRowHeight: AppTheme.tableHeadingH,
-                        columns: const [
-                          DataColumn(label: Text('#')),
-                          DataColumn(label: Text('Customer')),
-                          DataColumn(label: Text('Sale ID')),
-                          DataColumn(label: Text('Sale Value')),
-                          DataColumn(label: Text('Adjusted')),
-                          DataColumn(label: Text('Receivable')),
-                          DataColumn(label: Text('Received')),
-                          DataColumn(label: Text('Discount')),
-                          DataColumn(label: Text('Final Credit')),
-                          DataColumn(label: Text('Narration')),
-                          DataColumn(label: Text('')),
-                        ],
-                        rows: entries.asMap().entries.map((entry) {
-                          final idx = entry.key;
-                          final e = entry.value;
-                          return DataRow(
-                            color: WidgetStateProperty.resolveWith(
-                              (states) => idx.isOdd
-                                  ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                  : Colors.transparent,
-                            ),
-                            cells: [
-                              DataCell(Text('${idx + 1}')),
-                              DataCell(Text('${e['customerName'] ?? ''}')),
-                              DataCell(
-                                Text(
-                                  '${e['saleDisplayId'] ?? e['saleId'] ?? ''}',
+                  if (isMobile)
+                    Column(
+                      children: entries.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final e = entry.value;
+                        final saleId =
+                            '${e['saleDisplayId'] ?? e['saleId'] ?? ''}';
+                        final saleValue =
+                            (e['saleValue'] as num?)?.toDouble() ?? 0;
+                        final adjusted =
+                            (e['adjusted'] as num?)?.toDouble() ?? 0;
+                        final receivable =
+                            (e['receivable'] as num?)?.toDouble() ?? 0;
+                        final received =
+                            (e['received'] as num?)?.toDouble() ?? 0;
+                        final discount =
+                            (e['discount'] as num?)?.toDouble() ?? 0;
+                        final finalCredit =
+                            (e['finalCredit'] as num?)?.toDouble() ??
+                                (received + discount);
+                        final narration = '${e['narration'] ?? ''}';
+                        final subtitleParts = <String>[];
+                        if (saleId.isNotEmpty)
+                          subtitleParts.add('Sale $saleId');
+                        subtitleParts.add(
+                          'Value ${AppUtils.fmtAmt2(saleValue)}',
+                        );
+                        if (narration.isNotEmpty) subtitleParts.add(narration);
+                        final chips = <String>[
+                          'Recvbl ${AppUtils.fmtAmt2(receivable)}',
+                          'Recv ${AppUtils.fmtAmt2(received)}',
+                        ];
+                        if (adjusted > 0) {
+                          chips.add('Adj ${AppUtils.fmtAmt2(adjusted)}');
+                        }
+                        if (discount > 0) {
+                          chips.add('Disc ${AppUtils.fmtAmt2(discount)}');
+                        }
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: idx == entries.length - 1 ? 0 : 8,
+                          ),
+                          child: DetailLineCard(
+                            index: idx,
+                            title: '${e['customerName'] ?? ''}',
+                            subtitle: subtitleParts.isNotEmpty
+                                ? subtitleParts.join('  ·  ')
+                                : null,
+                            amount: AppUtils.fmtAmt2(finalCredit),
+                            amountLabel: 'Final Credit',
+                            chips: chips,
+                            onEdit: () {
+                              final updated = [...entries];
+                              final selected = updated.removeAt(idx);
+                              _entriesNotifier.value = updated;
+                              setState(() {
+                                _editingIndex = idx;
+                                _entryCustomerId =
+                                    '${selected['customerId'] ?? ''}';
+                                _entrySaleId = '${selected['saleId'] ?? ''}';
+                                _entrySaleDisplayId =
+                                    '${selected['saleDisplayId'] ?? selected['saleId'] ?? ''}';
+                                _entrySaleValue =
+                                    ((selected['saleValue'] as num?)
+                                            ?.toDouble() ??
+                                        0);
+                              });
+                              _entryCustomerNameCtrl.text =
+                                  '${selected['customerName'] ?? ''}';
+                              _entrySaleValueCtrl.text =
+                                  _entrySaleValue.toStringAsFixed(2);
+                              _entryAdjustedCtrl.text =
+                                  ((selected['adjusted'] as num?)?.toDouble() ??
+                                          0)
+                                      .toStringAsFixed(2);
+                              _entryReceivedCtrl.text =
+                                  ((selected['received'] as num?)?.toDouble() ??
+                                          0)
+                                      .toStringAsFixed(2);
+                              _entryDiscountCtrl.text =
+                                  ((selected['discount'] as num?)?.toDouble() ??
+                                          0)
+                                      .toStringAsFixed(2);
+                              _entryNarrationCtrl.text =
+                                  '${selected['narration'] ?? ''}';
+                            },
+                            onDelete: () {
+                              final updated = [...entries];
+                              updated.removeAt(idx);
+                              _entriesNotifier.value = updated;
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      decoration: AppTheme.cardDecor,
+                      child: HorizontalScrollWheel(
+                        child: DataTable(
+                          headingRowColor:
+                              WidgetStateProperty.all(AppTheme.clayBg),
+                          columnSpacing: AppTheme.tableColSpacing,
+                          horizontalMargin: AppTheme.tableHMargin,
+                          dataRowMinHeight: AppTheme.tableRowMin,
+                          dataRowMaxHeight: AppTheme.tableRowMax,
+                          headingRowHeight: AppTheme.tableHeadingH,
+                          columns: const [
+                            DataColumn(label: Text('#')),
+                            DataColumn(label: Text('Customer')),
+                            DataColumn(label: Text('Sale ID')),
+                            DataColumn(label: Text('Sale Value')),
+                            DataColumn(label: Text('Adjusted')),
+                            DataColumn(label: Text('Receivable')),
+                            DataColumn(label: Text('Received')),
+                            DataColumn(label: Text('Discount')),
+                            DataColumn(label: Text('Final Credit')),
+                            DataColumn(label: Text('Narration')),
+                            DataColumn(label: Text('')),
+                          ],
+                          rows: entries.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final e = entry.value;
+                            return DataRow(
+                              color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
+                                return idx.isOdd
+                                    ? AppTheme.clayBg.withValues(alpha: 0.5)
+                                    : Colors.transparent;
+                              }),
+                              cells: [
+                                DataCell(Text('${idx + 1}')),
+                                DataCell(Text('${e['customerName'] ?? ''}')),
+                                DataCell(
+                                  Text(
+                                    '${e['saleDisplayId'] ?? e['saleId'] ?? ''}',
+                                  ),
                                 ),
-                              ),
-                              DataCell(
-                                Text(
-                                  ((e['saleValue'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2),
+                                DataCell(
+                                  Text(
+                                    ((e['saleValue'] as num?)?.toDouble() ?? 0)
+                                        .toStringAsFixed(2),
+                                  ),
                                 ),
-                              ),
-                              DataCell(
-                                Text(
-                                  ((e['adjusted'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2),
+                                DataCell(
+                                  Text(
+                                    ((e['adjusted'] as num?)?.toDouble() ?? 0)
+                                        .toStringAsFixed(2),
+                                  ),
                                 ),
-                              ),
-                              DataCell(
-                                Text(
-                                  ((e['receivable'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2),
+                                DataCell(
+                                  Text(
+                                    ((e['receivable'] as num?)?.toDouble() ?? 0)
+                                        .toStringAsFixed(2),
+                                  ),
                                 ),
-                              ),
-                              DataCell(
-                                Text(
-                                  ((e['received'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2),
+                                DataCell(
+                                  Text(
+                                    ((e['received'] as num?)?.toDouble() ?? 0)
+                                        .toStringAsFixed(2),
+                                  ),
                                 ),
-                              ),
-                              DataCell(
-                                Text(
-                                  ((e['discount'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2),
+                                DataCell(
+                                  Text(
+                                    ((e['discount'] as num?)?.toDouble() ?? 0)
+                                        .toStringAsFixed(2),
+                                  ),
                                 ),
-                              ),
-                              DataCell(
-                                Text(
-                                  ((e['finalCredit'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2),
+                                DataCell(
+                                  Text(
+                                    ((e['finalCredit'] as num?)?.toDouble() ??
+                                            0)
+                                        .toStringAsFixed(2),
+                                  ),
                                 ),
-                              ),
-                              DataCell(Text('${e['narration'] ?? ''}')),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.edit_outlined,
-                                        size: 16,
-                                        color: AppTheme.terra600,
+                                DataCell(Text('${e['narration'] ?? ''}')),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 16,
+                                          color: AppTheme.terra600,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        tooltip: 'Edit',
+                                        onPressed: () {
+                                          final updated = [...entries];
+                                          final selected =
+                                              updated.removeAt(idx);
+                                          _entriesNotifier.value = updated;
+                                          setState(() {
+                                            _editingIndex = idx;
+                                            _entryCustomerId =
+                                                '${selected['customerId'] ?? ''}';
+                                            _entrySaleId =
+                                                '${selected['saleId'] ?? ''}';
+                                            _entrySaleDisplayId =
+                                                '${selected['saleDisplayId'] ?? selected['saleId'] ?? ''}';
+                                            _entrySaleValue =
+                                                ((selected['saleValue'] as num?)
+                                                        ?.toDouble() ??
+                                                    0);
+                                          });
+                                          _entryCustomerNameCtrl.text =
+                                              '${selected['customerName'] ?? ''}';
+                                          _entrySaleValueCtrl.text =
+                                              _entrySaleValue
+                                                  .toStringAsFixed(2);
+                                          _entryAdjustedCtrl.text =
+                                              ((selected['adjusted'] as num?)
+                                                          ?.toDouble() ??
+                                                      0)
+                                                  .toStringAsFixed(2);
+                                          _entryReceivedCtrl.text =
+                                              ((selected['received'] as num?)
+                                                          ?.toDouble() ??
+                                                      0)
+                                                  .toStringAsFixed(2);
+                                          _entryDiscountCtrl.text =
+                                              ((selected['discount'] as num?)
+                                                          ?.toDouble() ??
+                                                      0)
+                                                  .toStringAsFixed(2);
+                                          _entryNarrationCtrl.text =
+                                              '${selected['narration'] ?? ''}';
+                                        },
                                       ),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      tooltip: 'Edit',
-                                      onPressed: () {
-                                        final updated = [...entries];
-                                        final selected = updated.removeAt(idx);
-                                        _entriesNotifier.value = updated;
-                                        setState(() {
-                                          _editingIndex = idx;
-                                          _entryCustomerId =
-                                              '${selected['customerId'] ?? ''}';
-                                          _entrySaleId =
-                                              '${selected['saleId'] ?? ''}';
-                                          _entrySaleDisplayId =
-                                              '${selected['saleDisplayId'] ?? selected['saleId'] ?? ''}';
-                                          _entrySaleValue = ((selected['saleValue']
-                                                      as num?)
-                                                  ?.toDouble() ??
-                                              0);
-                                        });
-                                        _entryCustomerNameCtrl.text =
-                                            '${selected['customerName'] ?? ''}';
-                                        _entrySaleValueCtrl.text =
-                                            _entrySaleValue.toStringAsFixed(2);
-                                        _entryAdjustedCtrl.text =
-                                            ((selected['adjusted'] as num?)
-                                                        ?.toDouble() ??
-                                                    0)
-                                                .toStringAsFixed(2);
-                                        _entryReceivedCtrl.text =
-                                            ((selected['received'] as num?)
-                                                        ?.toDouble() ??
-                                                    0)
-                                                .toStringAsFixed(2);
-                                        _entryDiscountCtrl.text =
-                                            ((selected['discount'] as num?)
-                                                        ?.toDouble() ??
-                                                    0)
-                                                .toStringAsFixed(2);
-                                        _entryNarrationCtrl.text =
-                                            '${selected['narration'] ?? ''}';
-                                      },
-                                    ),
-                                    const SizedBox(width: 6),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        size: 16,
-                                        color: AppTheme.dangerText,
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 16,
+                                          color: AppTheme.dangerText,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        tooltip: 'Delete',
+                                        onPressed: () {
+                                          final updated = [...entries];
+                                          updated.removeAt(idx);
+                                          _entriesNotifier.value = updated;
+                                        },
                                       ),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      tooltip: 'Delete',
-                                      onPressed: () {
-                                        final updated = [...entries];
-                                        updated.removeAt(idx);
-                                        _entriesNotifier.value = updated;
-                                      },
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 8),
                   Container(
                     color: AppTheme.clayBg,

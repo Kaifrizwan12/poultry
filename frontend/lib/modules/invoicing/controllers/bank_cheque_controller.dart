@@ -13,7 +13,7 @@ class BankChequeController extends ChangeNotifier {
 
   final BankChequeService _service;
   List<BankChequeModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

@@ -73,11 +73,21 @@ class _TransactionsChipBar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           for (final group in groups) ...[
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
+            Container(
+              margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.clayBg,
+                borderRadius: BorderRadius.circular(6),
+              ),
               child: Text(
                 group.title,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textSecondary,
+                  letterSpacing: 0.4,
+                ),
               ),
             ),
             for (final item in group.items)
@@ -88,14 +98,27 @@ class _TransactionsChipBar extends StatelessWidget {
                   selected: nav.selectedSection == item.section,
                   selectedColor: AppTheme.terra100,
                   backgroundColor: AppTheme.surfaceWhite,
-                  side: BorderSide(color: nav.selectedSection == item.section ? AppTheme.terra400 : AppTheme.softBorder, width: nav.selectedSection == item.section ? 1.5 : 1),
-                  labelStyle: TextStyle(fontSize: 12, fontWeight: nav.selectedSection == item.section ? FontWeight.w700 : FontWeight.w500, color: nav.selectedSection == item.section ? AppTheme.terra800 : AppTheme.textSecondary),
+                  side: BorderSide(
+                    color: nav.selectedSection == item.section
+                        ? AppTheme.terra400
+                        : AppTheme.softBorder,
+                    width: nav.selectedSection == item.section ? 1.5 : 1,
+                  ),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: nav.selectedSection == item.section
+                        ? FontWeight.w700
+                        : FontWeight.w500,
+                    color: nav.selectedSection == item.section
+                        ? AppTheme.terra800
+                        : AppTheme.textSecondary,
+                  ),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   onSelected: (_) => nav.selectSection(item.section),
                 ),
               ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
           ],
         ],
       ),
@@ -163,18 +186,19 @@ class _MobileTransactionsLayout extends StatelessWidget {
     final isMenu = nav.showMobileMenu;
 
     if (!isMenu) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(_labelFor(nav.selectedSection)),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: nav.goBackToMenu,
+      return Column(
+        children: [
+          _MobileSubPageHeader(
+            title: _labelFor(nav.selectedSection),
+            onBack: nav.goBackToMenu,
           ),
-        ),
-        body: Padding(
-          padding: AppTheme.pagePadding(context),
-          child: _TransactionsContentArea(nav: nav),
-        ),
+          Expanded(
+            child: Padding(
+              padding: AppTheme.pagePadding(context),
+              child: _TransactionsContentArea(nav: nav),
+            ),
+          ),
+        ],
       );
     }
 
@@ -204,11 +228,79 @@ class _MobileTransactionsLayout extends StatelessWidget {
   }
 
   String _labelFor(InvoicingSection section) {
+    switch (section) {
+      case InvoicingSection.recoveryInvoiceWise:
+        return 'Recovery (Invoice)';
+      case InvoicingSection.recoveryReceivableWise:
+        return 'Recovery (Receivable)';
+      case InvoicingSection.salesmanCashReconciliation:
+        return 'Salesman Cash Recon';
+      case InvoicingSection.cashReceivingVoucher:
+        return 'Cash Receipt';
+      case InvoicingSection.cashPaymentVoucher:
+        return 'Cash Payment';
+      case InvoicingSection.bankChequeIssuing:
+        return 'Cheque Issuing';
+      case InvoicingSection.bankChequesReconciliation:
+        return 'Cheque Recon';
+      case InvoicingSection.cashDepositInBank:
+        return 'Cash Deposit';
+      case InvoicingSection.chequeDepositInBank:
+        return 'Cheque Deposit';
+      case InvoicingSection.depositReconciliation:
+        return 'Deposit Recon';
+      case InvoicingSection.postDatedRecoveryPromise:
+        return 'Recovery Promise';
+      case InvoicingSection.postDatedPaymentPromise:
+        return 'Payment Promise';
+      default:
+        break;
+    }
     for (final g in transactionsScreenGroups()) {
       for (final i in g.items) {
         if (i.section == section) return i.label;
       }
     }
     return 'Transactions';
+  }
+}
+
+// ─── Mobile sub-page header (replaces nested Scaffold AppBar) ─────────────────
+
+class _MobileSubPageHeader extends StatelessWidget {
+  const _MobileSubPageHeader({required this.title, required this.onBack});
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).appBarTheme.backgroundColor ??
+        Theme.of(context).colorScheme.surface;
+    return Material(
+      color: bg,
+      elevation: 1,
+      child: SizedBox(
+        height: kToolbarHeight,
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+              onPressed: onBack,
+            ),
+            Expanded(
+              child: Text(
+                title,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -13,6 +13,7 @@ class SalesReturnModel extends BaseSettingsModel {
   String get returnType     => text('returnType');
   String get returnDate     => text('returnDate');
   String get saleId         => text('saleId');
+  String get saleRef        => text('saleRef');
   String get saleDate       => text('saleDate');
   bool   get isFullReturn   => boolean('isFullReturn');
   String get customerId     => text('customerId');

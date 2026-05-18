@@ -13,7 +13,7 @@ class RecoveryInvoiceWiseController extends ChangeNotifier {
 
   final RecoveryInvoiceWiseService _service;
   List<RecoveryInvoiceWiseModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

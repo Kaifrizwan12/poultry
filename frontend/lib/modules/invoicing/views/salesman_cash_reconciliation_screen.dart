@@ -1,4 +1,6 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/detail_line_card.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +11,9 @@ import '../controllers/salesman_cash_reconciliation_controller.dart';
 import '../models/salesman_cash_reconciliation_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class SalesmanCashReconciliationScreen extends StatefulWidget {
   const SalesmanCashReconciliationScreen({super.key});
@@ -44,10 +49,9 @@ class _SalesmanCashReconciliationScreenState
       await recoveryCtrl.fetchAll();
     }
     if (!mounted) return;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(
             value: context.read<SalesmanCashReconciliationController>(),
@@ -80,6 +84,7 @@ class _SalesmanCashReconciliationScreenState
     return Consumer<SalesmanCashReconciliationController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -87,15 +92,18 @@ class _SalesmanCashReconciliationScreenState
             children: [
               Row(
                 children: [
-                  Text(
-                    'Salesman Cash Reconciliation',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Text(
+                      'Salesman Cash Reconciliation',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Reconciliation'),
+                    label: 'New Reconciliation',
                   ),
                 ],
               ),
@@ -104,7 +112,8 @@ class _SalesmanCashReconciliationScreenState
                 controller: _searchCtrl,
                 decoration: AppTheme.inputDecoration(
                   null,
-                  hintText: 'Search by reconciliation ID, salesman, date or status',
+                  hintText:
+                      'Search by reconciliation ID, salesman, date or status',
                   prefixIcon: const Icon(Icons.search_outlined, size: 18),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
@@ -117,7 +126,25 @@ class _SalesmanCashReconciliationScreenState
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -146,7 +173,7 @@ class _SalesmanCashReconciliationScreenState
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -155,6 +182,23 @@ class _SalesmanCashReconciliationScreenState
                     ),
                   ),
                 )
+              else if (isMobile)
+                Expanded(
+                    child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) {
+                    final item = items[i];
+                    return RecordCard(
+                      id: item.reconciliationId,
+                      subtitle: item.salesmanName,
+                      meta: AppUtils.formatDate(item.date),
+                      amount: AppUtils.fmtAmt(item.totalCashReceived),
+                      onTap: () => _openForm(initial: item),
+                    );
+                  },
+                ))
               else
                 Expanded(
                   child: SingleChildScrollView(
@@ -176,7 +220,8 @@ class _SalesmanCashReconciliationScreenState
                             DataColumn(label: Text('Rec. ID')),
                             DataColumn(label: Text('Date')),
                             DataColumn(label: Text('Salesman')),
-                            DataColumn(label: Text('Recoveries'), numeric: true),
+                            DataColumn(
+                                label: Text('Recoveries'), numeric: true),
                             DataColumn(label: Text('Expenses'), numeric: true),
                             DataColumn(
                               label: Text('Closing Balance'),
@@ -188,6 +233,9 @@ class _SalesmanCashReconciliationScreenState
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -199,12 +247,13 @@ class _SalesmanCashReconciliationScreenState
                               cells: [
                                 DataCell(Text('${idx + 1}')),
                                 DataCell(Text(item.reconciliationId)),
-                                DataCell(Text(item.date)),
+                                DataCell(Text(AppUtils.formatDate(item.date))),
                                 DataCell(Text(item.salesmanName)),
-                                DataCell(Text('${item.recoveryEntries.length}')),
+                                DataCell(
+                                    Text('${item.recoveryEntries.length}')),
                                 DataCell(Text('${item.expenseEntries.length}')),
                                 DataCell(
-                                  Text(item.closingBalance.toStringAsFixed(0)),
+                                  Text(AppUtils.fmtAmt(item.closingBalance)),
                                 ),
                               ],
                             );
@@ -409,8 +458,7 @@ class _SalesmanCashReconciliationFormDialogState
     );
     final totalDiscount = recoveryEntries.fold<double>(
       0,
-      (sum, entry) =>
-          sum + ((entry['discountGiven'] as num?)?.toDouble() ?? 0),
+      (sum, entry) => sum + ((entry['discountGiven'] as num?)?.toDouble() ?? 0),
     );
     final totalExpenses = expenseEntries.fold<double>(
       0,
@@ -449,18 +497,17 @@ class _SalesmanCashReconciliationFormDialogState
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -500,12 +547,12 @@ class _SalesmanCashReconciliationFormDialogState
   Widget build(BuildContext context) {
     final salesmen = context.watch<SalesmenController>().typedItems;
     final recoveries = context.watch<RecoveryInvoiceController>().items;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return InvoicingFormDialog(
       title: 'Salesman Cash Reconciliation',
-      badgeText: _reconciliationId.isNotEmpty
-          ? 'Rec. ID: $_reconciliationId'
-          : null,
+      badgeText:
+          _reconciliationId.isNotEmpty ? 'Rec. ID: $_reconciliationId' : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -527,8 +574,7 @@ class _SalesmanCashReconciliationFormDialogState
                       final picked = await showDatePicker(
                         context: context,
                         initialDate:
-                            DateTime.tryParse(_dateCtrl.text) ??
-                                DateTime.now(),
+                            DateTime.tryParse(_dateCtrl.text) ?? DateTime.now(),
                         firstDate: DateTime(2000),
                         lastDate: DateTime(2100),
                       );
@@ -691,6 +737,52 @@ class _SalesmanCashReconciliationFormDialogState
             valueListenable: _recoveryEntriesNotifier,
             builder: (context, entries, _) {
               if (entries.isEmpty) return const SizedBox.shrink();
+              if (isMobile) {
+                return Column(
+                  children: entries.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final row = entry.value;
+                    final recoveryId =
+                        '${row['recoveryDisplayId'] ?? row['recoveryId'] ?? ''}';
+                    final date = '${row['recoveryDate'] ?? ''}';
+                    final narration = '${row['narration'] ?? ''}';
+                    final cashReceived =
+                        (row['cashReceived'] as num?)?.toDouble() ?? 0;
+                    final discount =
+                        (row['discountGiven'] as num?)?.toDouble() ?? 0;
+                    final subtitleParts = <String>[];
+                    if (date.isNotEmpty) subtitleParts.add(date);
+                    if (narration.isNotEmpty) subtitleParts.add(narration);
+                    final chips = <String>[];
+                    if (discount > 0) {
+                      chips.add('Disc ${AppUtils.fmtAmt2(discount)}');
+                    }
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: idx == entries.length - 1 ? 0 : 8,
+                      ),
+                      child: DetailLineCard(
+                        index: idx,
+                        title: recoveryId.isNotEmpty
+                            ? recoveryId
+                            : 'Recovery ${idx + 1}',
+                        subtitle: subtitleParts.isNotEmpty
+                            ? subtitleParts.join('  ·  ')
+                            : null,
+                        amount: AppUtils.fmtAmt2(cashReceived),
+                        amountLabel: 'Cash',
+                        chips: chips,
+                        onEdit: () => _startEditingRecoveryEntry(idx, row),
+                        onDelete: () {
+                          final updatedEntries = [...entries];
+                          updatedEntries.removeAt(idx);
+                          _recoveryEntriesNotifier.value = updatedEntries;
+                        },
+                      ),
+                    );
+                  }).toList(),
+                );
+              }
               return Container(
                 width: double.infinity,
                 decoration: AppTheme.cardDecor,
@@ -714,11 +806,14 @@ class _SalesmanCashReconciliationFormDialogState
                       final idx = entry.key;
                       final row = entry.value;
                       return DataRow(
-                        color: WidgetStateProperty.resolveWith(
-                          (states) => idx.isOdd
+                        color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
                               ? AppTheme.clayBg.withValues(alpha: 0.5)
-                              : Colors.transparent,
-                        ),
+                              : Colors.transparent;
+                        }),
                         cells: [
                           DataCell(Text('${idx + 1}')),
                           DataCell(
@@ -817,8 +912,7 @@ class _SalesmanCashReconciliationFormDialogState
                     _editingExpenseEntry == null ? Icons.add : Icons.check,
                     size: 16,
                   ),
-                  label:
-                      Text(_editingExpenseEntry == null ? 'Add' : 'Update'),
+                  label: Text(_editingExpenseEntry == null ? 'Add' : 'Update'),
                 ),
                 if (_editingExpenseEntry != null)
                   OutlinedButton(
@@ -833,6 +927,32 @@ class _SalesmanCashReconciliationFormDialogState
             valueListenable: _expenseEntriesNotifier,
             builder: (context, entries, _) {
               if (entries.isEmpty) return const SizedBox.shrink();
+              if (isMobile) {
+                return Column(
+                  children: entries.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final row = entry.value;
+                    final amount = (row['amount'] as num?)?.toDouble() ?? 0;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: idx == entries.length - 1 ? 0 : 8,
+                      ),
+                      child: DetailLineCard(
+                        index: idx,
+                        title: '${row['description'] ?? ''}',
+                        amount: AppUtils.fmtAmt2(amount),
+                        amountLabel: 'Expense',
+                        onEdit: () => _startEditingExpenseEntry(idx, row),
+                        onDelete: () {
+                          final updatedEntries = [...entries];
+                          updatedEntries.removeAt(idx);
+                          _expenseEntriesNotifier.value = updatedEntries;
+                        },
+                      ),
+                    );
+                  }).toList(),
+                );
+              }
               return Container(
                 width: double.infinity,
                 decoration: AppTheme.cardDecor,
@@ -853,11 +973,14 @@ class _SalesmanCashReconciliationFormDialogState
                       final idx = entry.key;
                       final row = entry.value;
                       return DataRow(
-                        color: WidgetStateProperty.resolveWith(
-                          (states) => idx.isOdd
+                        color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
                               ? AppTheme.clayBg.withValues(alpha: 0.5)
-                              : Colors.transparent,
-                        ),
+                              : Colors.transparent;
+                        }),
                         cells: [
                           DataCell(Text('${idx + 1}')),
                           DataCell(Text('${row['description'] ?? ''}')),
@@ -916,14 +1039,12 @@ class _SalesmanCashReconciliationFormDialogState
                 final totalCashReceived = recoveryEntries.fold<double>(
                   0,
                   (sum, entry) =>
-                      sum +
-                      ((entry['cashReceived'] as num?)?.toDouble() ?? 0),
+                      sum + ((entry['cashReceived'] as num?)?.toDouble() ?? 0),
                 );
                 final discount = recoveryEntries.fold<double>(
                   0,
                   (sum, entry) =>
-                      sum +
-                      ((entry['discountGiven'] as num?)?.toDouble() ?? 0),
+                      sum + ((entry['discountGiven'] as num?)?.toDouble() ?? 0),
                 );
                 final totalExpenses = expenseEntries.fold<double>(
                   0,
@@ -932,8 +1053,10 @@ class _SalesmanCashReconciliationFormDialogState
                 );
                 final cashDeposited =
                     double.tryParse(_cashDepositedCtrl.text) ?? 0;
-                final closingBalance =
-                    openingBalance + totalCashReceived - totalExpenses - cashDeposited;
+                final closingBalance = openingBalance +
+                    totalCashReceived -
+                    totalExpenses -
+                    cashDeposited;
                 return Container(
                   decoration: AppTheme.cardDecor,
                   padding: const EdgeInsets.symmetric(

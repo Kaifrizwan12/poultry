@@ -1,4 +1,7 @@
+import 'package:farm_mgt_auth/core/app_utils.dart';
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/detail_line_card.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/packings_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/products_controller.dart';
@@ -9,6 +12,8 @@ import '../controllers/stock_expiry_controller.dart';
 import '../models/stock_expiry_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class StockExpiryScreen extends StatefulWidget {
   const StockExpiryScreen({super.key});
@@ -37,10 +42,9 @@ class _StockExpiryScreenState extends State<StockExpiryScreen> {
   }
 
   Future<void> _openForm({StockExpiryModel? initial}) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(
             value: context.read<StockExpiryController>(),
@@ -71,6 +75,7 @@ class _StockExpiryScreenState extends State<StockExpiryScreen> {
     return Consumer<StockExpiryController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -78,15 +83,18 @@ class _StockExpiryScreenState extends State<StockExpiryScreen> {
             children: [
               Row(
                 children: [
-                  Text(
-                    'Stock Expiry Invoices',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Text(
+                      'Stock Expiry Invoices',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Expiry Invoice'),
+                    label: 'New Expiry Invoice',
                   ),
                 ],
               ),
@@ -108,7 +116,25 @@ class _StockExpiryScreenState extends State<StockExpiryScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -137,7 +163,7 @@ class _StockExpiryScreenState extends State<StockExpiryScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -145,6 +171,24 @@ class _StockExpiryScreenState extends State<StockExpiryScreen> {
                       style: const TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      return RecordCard(
+                        id: item.expiryId,
+                        meta: AppUtils.formatDate(item.date),
+                        subtitle: '${item.items.length} item${item.items.length == 1 ? '' : 's'}',
+                        amount: AppUtils.fmtAmt(item.netValue),
+                        onTap: () => _openForm(initial: item),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -174,6 +218,9 @@ class _StockExpiryScreenState extends State<StockExpiryScreen> {
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -185,10 +232,10 @@ class _StockExpiryScreenState extends State<StockExpiryScreen> {
                               cells: [
                                 DataCell(Text('${idx + 1}')),
                                 DataCell(Text(item.expiryId)),
-                                DataCell(Text(item.date)),
+                                DataCell(Text(AppUtils.formatDate(item.date))),
                                 DataCell(Text('${item.items.length}')),
                                 DataCell(
-                                  Text(item.netValue.toStringAsFixed(0)),
+                                  Text(AppUtils.fmtAmt(item.netValue)),
                                 ),
                               ],
                             );
@@ -221,6 +268,7 @@ class _StockExpiryFormDialogState extends State<_StockExpiryFormDialog> {
   final ValueNotifier<List<Map<String, dynamic>>> _itemsNotifier =
       ValueNotifier([]);
   Map<String, dynamic>? _editingItem;
+  int? _editingItemOriginalIndex;
 
   final _dateCtrl = TextEditingController(
     text: DateTime.now().toIso8601String().substring(0, 10),
@@ -264,6 +312,7 @@ class _StockExpiryFormDialogState extends State<_StockExpiryFormDialog> {
   void _clearLineEntry() {
     setState(() {
       _editingItem = null;
+      _editingItemOriginalIndex = null;
       _lineProductId = null;
       _linePackingId = '';
       _linePack = 1;
@@ -308,8 +357,19 @@ class _StockExpiryFormDialogState extends State<_StockExpiryFormDialog> {
   void _startEditingItem(int index, Map<String, dynamic> item) {
     final updatedItems = [..._itemsNotifier.value];
     updatedItems.removeAt(index);
+    _editingItemOriginalIndex = index;
     _itemsNotifier.value = updatedItems;
     _setLineFromItem(item);
+  }
+
+  void _cancelEditLineEntry() {
+    final item = _editingItem;
+    final idx = _editingItemOriginalIndex;
+    _clearLineEntry();
+    if (item == null) return;
+    final items = [..._itemsNotifier.value];
+    items.insert((idx ?? items.length).clamp(0, items.length), item);
+    _itemsNotifier.value = items;
   }
 
   void _onLineProductChanged(String? productId) {
@@ -428,18 +488,16 @@ class _StockExpiryFormDialogState extends State<_StockExpiryFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -475,6 +533,7 @@ class _StockExpiryFormDialogState extends State<_StockExpiryFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final products = context.watch<ProductsController>().typedItems;
     final packings = context.watch<PackingsController>().typedItems;
 
@@ -661,7 +720,7 @@ class _StockExpiryFormDialogState extends State<_StockExpiryFormDialog> {
                 ),
                 if (_editingItem != null)
                   OutlinedButton(
-                    onPressed: _clearLineEntry,
+                    onPressed: _cancelEditLineEntry,
                     child: const Text('Cancel Edit'),
                   ),
               ],
@@ -687,7 +746,43 @@ class _StockExpiryFormDialogState extends State<_StockExpiryFormDialog> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
+                  if (isMobile)
+                    Column(
+                      children: items.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final item = entry.value;
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: idx == items.length - 1 ? 0 : 8,
+                          ),
+                          child: DetailLineCard(
+                            index: idx,
+                            title: '${item['productName'] ?? ''}',
+                            subtitle: '${item['packingName'] ?? ''}',
+                            amount: AppUtils.fmtAmt2(
+                              ((item['value'] as num?)?.toDouble() ?? 0),
+                            ),
+                            amountLabel:
+                                'Cost ${AppUtils.fmtAmt2(((item['cost'] as num?)?.toDouble() ?? 0))}',
+                            chips: [
+                              'Pack ${item['pack'] ?? ''}',
+                              'Exp(P) ${item['expQtyPacks'] ?? ''}',
+                              'Exp(L) ${item['expQtyLoose'] ?? ''}',
+                              'Dam(P) ${item['damQtyPacks'] ?? ''}',
+                              'Dam(L) ${item['damQtyLoose'] ?? ''}',
+                            ],
+                            onEdit: () => _startEditingItem(idx, item),
+                            onDelete: () {
+                              final updatedItems = [...items];
+                              updatedItems.removeAt(idx);
+                              _itemsNotifier.value = updatedItems;
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    )
+                  else
+                    Container(
                     width: double.infinity,
                     decoration: AppTheme.cardDecor,
                     child: HorizontalScrollWheel(
@@ -715,11 +810,14 @@ class _StockExpiryFormDialogState extends State<_StockExpiryFormDialog> {
                           final idx = entry.key;
                           final item = entry.value;
                           return DataRow(
-                            color: WidgetStateProperty.resolveWith(
-                              (states) => idx.isOdd
-                                  ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                  : Colors.transparent,
-                            ),
+                            color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
+                              ? AppTheme.clayBg.withValues(alpha: 0.5)
+                              : Colors.transparent;
+                        }),
                             cells: [
                               DataCell(Text('${idx + 1}')),
                               DataCell(Text('${item['productName'] ?? ''}')),

@@ -2,7 +2,11 @@ import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/models/account.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
+final _decimalFormatter =
+    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'));
 
 class VoucherLineRow extends StatefulWidget {
   const VoucherLineRow({
@@ -168,6 +172,7 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
                 controller: _debitCtrl,
                 decoration: _dec('Debit'),
                 keyboardType: TextInputType.number,
+                inputFormatters: [_decimalFormatter],
               ),
             ),
           if (showCredit)
@@ -177,6 +182,7 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
                 controller: _creditCtrl,
                 decoration: _dec('Credit'),
                 keyboardType: TextInputType.number,
+                inputFormatters: [_decimalFormatter],
               ),
             ),
           SizedBox(
@@ -194,6 +200,7 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
             ),
             label: Text(widget.initialValues != null ? 'Update' : 'Add'),
             style: ElevatedButton.styleFrom(
+              minimumSize: const Size(0, 56),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
           ),

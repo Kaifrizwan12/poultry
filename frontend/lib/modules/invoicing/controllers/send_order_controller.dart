@@ -13,7 +13,7 @@ class SendOrderController extends ChangeNotifier {
 
   final SendOrderService _service;
   List<SendOrderModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

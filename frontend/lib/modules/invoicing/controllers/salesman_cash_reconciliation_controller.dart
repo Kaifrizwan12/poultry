@@ -13,7 +13,7 @@ class SalesmanCashReconciliationController extends ChangeNotifier {
 
   final SalesmanCashReconciliationService _service;
   List<SalesmanCashReconciliationModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

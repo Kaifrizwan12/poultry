@@ -215,8 +215,6 @@ class _LedgerByAccountScreenState extends State<LedgerByAccountScreen> {
   }
 
   Widget _buildContent(BuildContext context, LedgerController ctrl) {
-    if (ctrl.isLoading) return const Center(child: CircularProgressIndicator());
-
     if (ctrl.error != null) {
       return Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -232,9 +230,31 @@ class _LedgerByAccountScreenState extends State<LedgerByAccountScreen> {
 
     final view = ctrl.accountView;
     if (view == null) {
-      return const Center(child: CircularProgressIndicator());
+      return ctrl.isLoading
+          ? Column(
+              children: [
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+                const Expanded(child: SizedBox.shrink()),
+              ],
+            )
+          : const SizedBox.shrink();
     }
-
+    if (ctrl.isLoading) {
+      return Column(
+        children: [
+          LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: Colors.transparent,
+            color: AppTheme.terra400,
+          ),
+          const Expanded(child: SizedBox.shrink()),
+        ],
+      );
+    }
     if (view.entries.isEmpty) {
       return Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -252,27 +272,36 @@ class _LedgerByAccountScreenState extends State<LedgerByAccountScreen> {
       ]));
     }
 
-    return _LedgerTable(
-      view: view,
-      balanceType: view.balanceType,
-      onEdit: _openForm,
-      onDelete: _confirmDelete,
-      onToggleReconciled: (e) async {
-        try {
-          await ctrl.toggleReconciled(e);
-        } catch (err) {
-          if (context.mounted)
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              backgroundColor: AppTheme.dangerText,
-              content: Text(err.toString()),
-            ));
-          return;
-        }
-
-        // Refresh to ensure running balances stay correct.
-        // (The generic update endpoint doesn't return runningBalance.)
-        _load();
-      },
+    return Column(
+      children: [
+        if (ctrl.isLoading)
+          LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: Colors.transparent,
+            color: AppTheme.terra400,
+          ),
+        Expanded(
+          child: _LedgerTable(
+            view: view,
+            balanceType: view.balanceType,
+            onEdit: _openForm,
+            onDelete: _confirmDelete,
+            onToggleReconciled: (e) async {
+              try {
+                await ctrl.toggleReconciled(e);
+              } catch (err) {
+                if (context.mounted)
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    backgroundColor: AppTheme.dangerText,
+                    content: Text(err.toString()),
+                  ));
+                return;
+              }
+              _load();
+            },
+          ),
+        ),
+      ],
     );
   }
 }

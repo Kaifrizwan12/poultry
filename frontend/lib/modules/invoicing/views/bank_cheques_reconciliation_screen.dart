@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 
 import '../controllers/bank_cheque_controller.dart';
 import '../models/bank_cheque_model.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class BankChequesReconciliationScreen extends StatefulWidget {
   const BankChequesReconciliationScreen({super.key});
@@ -22,6 +25,7 @@ class _BankChequesReconciliationScreenState
   final _dateToCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   double _clearedThisSession = 0;
+  final Set<String> _processingIds = {};
 
   @override
   void initState() {
@@ -77,6 +81,32 @@ class _BankChequesReconciliationScreenState
   }
 
   Future<void> _updateStatus(String id, String status) async {
+    if (_processingIds.contains(id)) return;
+    final label = status[0].toUpperCase() + status.substring(1);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('$label Cheque?'),
+        content: Text('Mark this cheque as $status. This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: status == 'cleared'
+                  ? AppTheme.successText
+                  : AppTheme.dangerText,
+            ),
+            child: Text(label),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _processingIds.add(id));
     String? clearedDate;
     if (status == 'cleared') {
       clearedDate = DateTime.now().toIso8601String().substring(0, 10);
@@ -102,6 +132,8 @@ class _BankChequesReconciliationScreenState
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+    } finally {
+      if (mounted) setState(() => _processingIds.remove(id));
     }
   }
 
@@ -113,6 +145,7 @@ class _BankChequesReconciliationScreenState
     return Consumer<BankChequeController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         final totalOutstanding = items.fold<double>(
           0,
           (sum, item) => sum + item.amount,
@@ -144,99 +177,119 @@ class _BankChequesReconciliationScreenState
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              Container(
-                decoration: AppTheme.cardDecor,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.end,
-                  children: [
-                    SizedBox(
-                      width: 220,
-                      child: DropdownButtonFormField<String>(
-                        value: _filterBankAccountId.isEmpty
-                            ? null
-                            : _filterBankAccountId,
-                        decoration: _dec('Bank Account'),
-                        isExpanded: true,
-                        items: [
-                          const DropdownMenuItem<String>(
-                            value: '',
-                            child: Text('All'),
-                          ),
-                          ...accounts.map(
-                            (account) => DropdownMenuItem<String>(
-                              value: account.id,
-                              child: Text(
-                                account.text('accountName'),
-                                overflow: TextOverflow.ellipsis,
+              if (!isMobile)
+                Container(
+                  decoration: AppTheme.cardDecor,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.end,
+                    children: [
+                      SizedBox(
+                        width: 220,
+                        child: DropdownButtonFormField<String>(
+                          value: _filterBankAccountId.isEmpty
+                              ? null
+                              : _filterBankAccountId,
+                          decoration: _dec('Bank Account'),
+                          isExpanded: true,
+                          items: [
+                            const DropdownMenuItem<String>(
+                              value: '',
+                              child: Text('All'),
+                            ),
+                            ...accounts.map(
+                              (account) => DropdownMenuItem<String>(
+                                value: account.id,
+                                child: Text(
+                                  account.text('accountName'),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                        onChanged: (value) =>
-                            setState(() => _filterBankAccountId = value ?? ''),
+                          ],
+                          onChanged: (value) => setState(
+                              () => _filterBankAccountId = value ?? ''),
+                        ),
                       ),
-                    ),
-                    SizedBox(
-                      width: 150,
-                      child: TextFormField(
-                        controller: _dateFromCtrl,
-                        decoration: _dec('Date From'),
-                        readOnly: true,
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null && mounted) {
-                            setState(() {
-                              _dateFromCtrl.text =
-                                  picked.toIso8601String().substring(0, 10);
-                            });
-                          }
-                        },
+                      SizedBox(
+                        width: 150,
+                        child: TextFormField(
+                          controller: _dateFromCtrl,
+                          decoration: _dec('Date From'),
+                          readOnly: true,
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null && mounted) {
+                              setState(() {
+                                _dateFromCtrl.text =
+                                    picked.toIso8601String().substring(0, 10);
+                              });
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                    SizedBox(
-                      width: 150,
-                      child: TextFormField(
-                        controller: _dateToCtrl,
-                        decoration: _dec('Date To'),
-                        readOnly: true,
-                        onTap: () async {
-                          final picked = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100),
-                          );
-                          if (picked != null && mounted) {
-                            setState(() {
-                              _dateToCtrl.text =
-                                  picked.toIso8601String().substring(0, 10);
-                            });
-                          }
-                        },
+                      SizedBox(
+                        width: 150,
+                        child: TextFormField(
+                          controller: _dateToCtrl,
+                          decoration: _dec('Date To'),
+                          readOnly: true,
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.now(),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null && mounted) {
+                              setState(() {
+                                _dateToCtrl.text =
+                                    picked.toIso8601String().substring(0, 10);
+                              });
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                    OutlinedButton(
-                      onPressed: () => setState(() {
-                        _filterBankAccountId = '';
-                        _dateFromCtrl.clear();
-                        _dateToCtrl.clear();
-                        _searchCtrl.clear();
-                      }),
-                      child: const Text('Reset'),
-                    ),
-                  ],
+                      OutlinedButton(
+                        onPressed: () => setState(() {
+                          _filterBankAccountId = '';
+                          _dateFromCtrl.clear();
+                          _dateToCtrl.clear();
+                          _searchCtrl.clear();
+                        }),
+                        child: const Text('Reset'),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -245,7 +298,7 @@ class _BankChequesReconciliationScreenState
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -254,6 +307,72 @@ class _BankChequesReconciliationScreenState
                     ),
                   ),
                 )
+              else if (isMobile)
+                Expanded(
+                    child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (_, i) {
+                    final item = items[i];
+                    final payee = item.payeeType == 'vendor'
+                        ? item.vendorName
+                        : item.payeeType == 'account'
+                            ? item.payeeAccountName
+                            : item.payeeName;
+                    return RecordCard(
+                      id: item.chequeNo,
+                      subtitle: payee,
+                      meta: AppUtils.formatDate(item.chequeDate),
+                      amount: AppUtils.fmtAmt(item.amount),
+                      trailing: _processingIds.contains(item.id)
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextButton(
+                                  onPressed: () =>
+                                      _updateStatus(item.id, 'cleared'),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    minimumSize: const Size(0, 32),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text('Clear',
+                                      style: TextStyle(
+                                          color: AppTheme.successText,
+                                          fontSize: 12)),
+                                ),
+                                const SizedBox(width: 6),
+                                TextButton(
+                                  onPressed: () =>
+                                      _updateStatus(item.id, 'bounced'),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    minimumSize: const Size(0, 32),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text('Bounce',
+                                      style: TextStyle(
+                                          color: AppTheme.dangerText,
+                                          fontSize: 12)),
+                                ),
+                              ],
+                            ),
+                    );
+                  },
+                ))
               else
                 Expanded(
                   child: SingleChildScrollView(
@@ -288,64 +407,76 @@ class _BankChequesReconciliationScreenState
                                         ? item.payeeAccountName
                                         : item.payeeName;
                                 return DataRow(
-                                  color: WidgetStateProperty.resolveWith(
-                                    (states) => idx.isOdd
+                                  color:
+                                      WidgetStateProperty.resolveWith((states) {
+                                    if (states.contains(WidgetState.pressed)) {
+                                      return AppTheme.terra50;
+                                    }
+                                    return idx.isOdd
                                         ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                        : Colors.transparent,
-                                  ),
+                                        : Colors.transparent;
+                                  }),
                                   cells: [
                                     DataCell(Text(item.chequeNo)),
-                                    DataCell(Text(item.chequeDate)),
+                                    DataCell(Text(
+                                        AppUtils.formatDate(item.chequeDate))),
                                     DataCell(Text(payee)),
                                     DataCell(
-                                      Text(item.amount.toStringAsFixed(2)),
+                                      Text(AppUtils.fmtAmt2(item.amount)),
                                     ),
                                     DataCell(Text(item.status)),
                                     DataCell(
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          TextButton(
-                                            onPressed: () => _updateStatus(
-                                              item.id,
-                                              'cleared',
+                                      _processingIds.contains(item.id)
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2),
+                                            )
+                                          : Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      _updateStatus(
+                                                          item.id, 'cleared'),
+                                                  child: const Text(
+                                                    'Clear',
+                                                    style: TextStyle(
+                                                      color:
+                                                          AppTheme.successText,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      _updateStatus(
+                                                          item.id, 'bounced'),
+                                                  child: const Text(
+                                                    'Bounce',
+                                                    style: TextStyle(
+                                                      color:
+                                                          AppTheme.dangerText,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      _updateStatus(
+                                                          item.id, 'cancelled'),
+                                                  child: const Text(
+                                                    'Cancel',
+                                                    style: TextStyle(
+                                                      color: AppTheme
+                                                          .textSecondary,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
-                                            child: const Text(
-                                              'Clear',
-                                              style: TextStyle(
-                                                color: AppTheme.successText,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => _updateStatus(
-                                              item.id,
-                                              'bounced',
-                                            ),
-                                            child: const Text(
-                                              'Bounce',
-                                              style: TextStyle(
-                                                color: AppTheme.dangerText,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => _updateStatus(
-                                              item.id,
-                                              'cancelled',
-                                            ),
-                                            child: const Text(
-                                              'Cancel',
-                                              style: TextStyle(
-                                                color: AppTheme.textSecondary,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
                                     ),
                                   ],
                                 );

@@ -1,4 +1,6 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
+import 'package:farm_mgt_auth/core/responsive_search_filter_bar.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/customers_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/discount_schemes_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
@@ -16,6 +18,13 @@ import '../models/sales_invoice_model.dart';
 import '../widgets/invoice_line_item_row.dart';
 import '../widgets/invoice_totals_footer.dart';
 import '../widgets/invoicing_action_bar.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
+import 'package:farm_mgt_auth/core/line_item_card.dart';
+import 'package:farm_mgt_auth/modules/invoicing/widgets/invoicing_form_dialog.dart';
+
+
 
 // ─── List Page ────────────────────────────────────────────────────────────────
 
@@ -57,10 +66,9 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
     final packCtrl = context.read<PackingsController>();
     final unitsCtrl = context.read<UnitsController>();
 
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: siCtrl),
           ChangeNotifierProvider.value(value: prodCtrl),
@@ -106,6 +114,7 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
     return Consumer<SalesInvoiceController>(
       builder: (context, ctrl, _) {
         final items = _applyFilters(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
 
         return Padding(
           padding: AppTheme.pagePadding(context),
@@ -115,51 +124,52 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
               // ── Header ───────────────────────────────────────────────────
               Row(
                 children: [
-                  Text('Sales Invoices',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  Expanded(
+                    child: Text(
+                      'Sales Invoices',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Invoice'),
+                    label: 'New Invoice',
                   ),
                 ],
               ),
               const SizedBox(height: 12),
 
               // ── Search + filter chips ────────────────────────────────────
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _searchCtrl,
-                      decoration: AppTheme.inputDecoration(
-                        null,
-                        hintText: 'Search by customer, salesman or sale ID',
-                        prefixIcon: const Icon(Icons.search_outlined, size: 18),
-                        suffixIcon: _searchCtrl.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                padding: EdgeInsets.zero,
-                                onPressed: () =>
-                                    setState(() => _searchCtrl.clear()),
-                              )
-                            : null,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
+              ResponsiveSearchFilterBar(
+                search: TextFormField(
+                  controller: _searchCtrl,
+                  decoration: AppTheme.inputDecoration(
+                    null,
+                    hintText: 'Search by customer, salesman or sale ID',
+                    prefixIcon: const Icon(Icons.search_outlined, size: 18),
+                    suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            padding: EdgeInsets.zero,
+                            tooltip: 'Clear search',
+                            onPressed: () =>
+                                setState(() => _searchCtrl.clear()),
+                          )
+                        : null,
                   ),
-                  const SizedBox(width: 10),
+                  onChanged: (_) => setState(() {}),
+                ),
+                filters: [
                   _FilterChip(
                       label: 'All',
                       selected: _filter == 'all',
                       onTap: () => setState(() => _filter = 'all')),
-                  const SizedBox(width: 6),
                   _FilterChip(
                       label: 'Saved',
                       selected: _filter == 'saved',
                       onTap: () => setState(() => _filter = 'saved')),
-                  const SizedBox(width: 6),
                   _FilterChip(
                       label: 'Pending',
                       selected: _filter == 'pending',
@@ -169,7 +179,25 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
               const SizedBox(height: 12),
 
               // ── List ─────────────────────────────────────────────────────
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -193,12 +221,31 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text('No matches for "${_searchCtrl.text}".',
                         style: const TextStyle(color: AppTheme.textSecondary)),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final inv = items[i];
+                      return RecordCard(
+                        id: inv.saleId,
+                        subtitle: inv.customerName,
+                        meta: AppUtils.formatDate(inv.entryDate),
+                        amount: AppUtils.fmtAmt(inv.totalPayable),
+                        badge: _StatusBadge(status: inv.status),
+                        onTap: () => _openForm(initial: inv),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -231,6 +278,9 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
                             final inv = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -246,14 +296,12 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
                                     overflow: TextOverflow.ellipsis)),
                                 DataCell(Text(inv.salesmanName,
                                     overflow: TextOverflow.ellipsis)),
-                                DataCell(Text(inv.entryDate.length >= 10
-                                    ? inv.entryDate.substring(0, 10)
-                                    : inv.entryDate)),
+                                DataCell(Text(AppUtils.formatDate(inv.entryDate))),
                                 DataCell(_StatusBadge(status: inv.status)),
                                 DataCell(
-                                    Text(inv.totalPayable.toStringAsFixed(0))),
+                                    Text(AppUtils.fmtAmt(inv.totalPayable))),
                                 DataCell(Text(
-                                  inv.remBalance.toStringAsFixed(0),
+                                  AppUtils.fmtAmt(inv.remBalance),
                                   style: TextStyle(
                                     color: inv.remBalance > 0
                                         ? AppTheme.dangerText
@@ -355,6 +403,7 @@ class _SalesInvoiceFormDialogState extends State<_SalesInvoiceFormDialog> {
   final _itemsNotifier = ValueNotifier<List<Map<String, dynamic>>>([]);
   // When non-null an existing row is being edited; the entry row is pre-filled.
   Map<String, dynamic>? _editingItem;
+  int? _editingItemOriginalIndex;
   int _entryRowKey = 0; // incremented to force InvoiceLineItemRow rebuild
 
   final _entryDateCtrl = TextEditingController(
@@ -504,6 +553,27 @@ class _SalesInvoiceFormDialogState extends State<_SalesInvoiceFormDialog> {
   }
 
   Future<void> _save(String status) async {
+    if (_customerId.isEmpty) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a customer')));
+    }
+    return;
+    }
+    if (_salesmanId.isEmpty) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a salesman')));
+    }
+    return;
+    }
+    if (_itemsNotifier.value.isEmpty) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one item')));
+    }
+    return;
+    }
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
@@ -517,19 +587,18 @@ class _SalesInvoiceFormDialogState extends State<_SalesInvoiceFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload(status));
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(status == 'saved'
-                ? 'Invoice saved successfully'
-                : 'Saved as pending')));
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(SnackBar(
+        content: Text(status == 'saved' ? 'Invoice saved successfully' : 'Saved as pending'),
+      ));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -564,6 +633,20 @@ class _SalesInvoiceFormDialogState extends State<_SalesInvoiceFormDialog> {
         }
       }
     }
+  }
+
+  void _cancelEditingItem() {
+    final item = _editingItem;
+    final idx = _editingItemOriginalIndex;
+    setState(() {
+      _editingItem = null;
+      _editingItemOriginalIndex = null;
+      _entryRowKey++;
+    });
+    if (item == null) return;
+    final items = [..._itemsNotifier.value];
+    items.insert((idx ?? items.length).clamp(0, items.length), item);
+    _itemsNotifier.value = items;
   }
 
   InputDecoration _dec(String label) => AppTheme.inputDecoration(label);
@@ -889,8 +972,14 @@ class _SalesInvoiceFormDialogState extends State<_SalesInvoiceFormDialog> {
                                   ..._itemsNotifier.value,
                                   item,
                                 ];
-                                setState(() => _editingItem = null);
+                                setState(() {
+                                  _editingItem = null;
+                                  _editingItemOriginalIndex = null;
+                                });
                               },
+                              onCancel: _editingItem != null
+                                  ? _cancelEditingItem
+                                  : null,
                             ),
                             const SizedBox(height: 12),
 
@@ -906,6 +995,40 @@ class _SalesInvoiceFormDialogState extends State<_SalesInvoiceFormDialog> {
                                       child: Text('No items added yet.',
                                           style: TextStyle(
                                               color: AppTheme.textSecondary)),
+                                    );
+                                  }
+                                  if (MediaQuery.of(context).size.width < 600) {
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Container(
+                                          decoration: AppTheme.cardDecor,
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: items.asMap().entries.map((entry) {
+                                              return LineItemCard(
+                                                index: entry.key,
+                                                item: entry.value,
+                                                onEdit: () {
+                              final u = [..._itemsNotifier.value];
+                              final it = u.removeAt(entry.key);
+                              _itemsNotifier.value = u;
+                              setState(() {
+                                _editingItem = it;
+                                _editingItemOriginalIndex = entry.key;
+                                _entryRowKey++;
+                              });
+                            },
+                                                onDelete: () {
+                                                  final u = [..._itemsNotifier.value];
+                                                  u.removeAt(entry.key);
+                                                  _itemsNotifier.value = u;
+                                                },
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ),
+                                      ],
                                     );
                                   }
                                   return Column(
@@ -1029,6 +1152,7 @@ class _SalesInvoiceFormDialogState extends State<_SalesInvoiceFormDialog> {
                                                               updated;
                                                           setState(() {
                                                             _editingItem = item;
+                                                            _editingItemOriginalIndex = idx;
                                                             _entryRowKey++;
                                                           });
                                                         },

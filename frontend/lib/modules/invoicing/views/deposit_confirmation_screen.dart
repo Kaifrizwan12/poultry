@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 
 import '../controllers/bank_deposit_controller.dart';
 import '../models/bank_deposit_model.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class DepositConfirmationScreen extends StatefulWidget {
   const DepositConfirmationScreen({super.key});
@@ -21,6 +24,7 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
   final _dateToCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   String _depositTypeFilter = '';
+  final Set<String> _processingIds = {};
 
   @override
   void initState() {
@@ -76,6 +80,26 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
   }
 
   Future<void> _confirm(String id) async {
+    if (_processingIds.contains(id)) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirm Deposit?'),
+        content: const Text('Mark this deposit as confirmed. This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _processingIds.add(id));
     try {
       await context.read<BankDepositController>().confirm(id);
       if (mounted) {
@@ -88,6 +112,8 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+    } finally {
+      if (mounted) setState(() => _processingIds.remove(id));
     }
   }
 
@@ -99,6 +125,7 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
     return Consumer<BankDepositController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         final pendingCount = items.where((item) => !item.isConfirmed).length;
         final confirmedCount = items.where((item) => item.isConfirmed).length;
         return Padding(
@@ -128,6 +155,7 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
+              if (!isMobile)
               Container(
                 decoration: AppTheme.cardDecor,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -247,7 +275,25 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -256,7 +302,7 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -264,6 +310,40 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
                       style: TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      return RecordCard(
+                        id: item.depositId,
+                        subtitle: '${item.depositType.toUpperCase()}  ·  ${item.depositSlipNo}',
+                        meta: AppUtils.formatDate(item.depositDate),
+                        amount: AppUtils.fmtAmt(item.amount),
+                        trailing: _processingIds.contains(item.id)
+                            ? const SizedBox(
+                                width: 20, height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : item.isConfirmed
+                                ? const Text('Confirmed',
+                                    style: TextStyle(color: AppTheme.successText,
+                                        fontSize: 12, fontWeight: FontWeight.w600))
+                                : TextButton(
+                                    onPressed: () => _confirm(item.id),
+                                    style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: const Size(60, 32)),
+                                    child: const Text('Confirm',
+                                        style: TextStyle(color: AppTheme.terra600,
+                                            fontSize: 12, fontWeight: FontWeight.w700)),
+                                  ),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -295,11 +375,14 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
                                 final idx = entry.key;
                                 final item = entry.value;
                                 return DataRow(
-                                  color: WidgetStateProperty.resolveWith(
-                                    (states) => idx.isOdd
-                                        ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                        : Colors.transparent,
-                                  ),
+                                  color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
+                              ? AppTheme.clayBg.withValues(alpha: 0.5)
+                              : Colors.transparent;
+                        }),
                                   cells: [
                                     DataCell(
                                       Text(
@@ -308,11 +391,11 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
                                             : '—',
                                       ),
                                     ),
-                                    DataCell(Text(item.depositDate)),
+                                    DataCell(Text(AppUtils.formatDate(item.depositDate))),
                                     DataCell(Text(item.depositType)),
                                     DataCell(Text(item.depositSlipNo)),
                                     DataCell(
-                                      Text(item.amount.toStringAsFixed(2)),
+                                      Text(AppUtils.fmtAmt2(item.amount)),
                                     ),
                                     DataCell(
                                       Icon(
@@ -334,22 +417,31 @@ class _DepositConfirmationScreenState extends State<DepositConfirmationScreen> {
                                                 fontSize: 12,
                                               ),
                                             )
-                                          : ElevatedButton(
-                                              onPressed: () => _confirm(item.id),
-                                              style: ElevatedButton.styleFrom(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 6,
+                                          : _processingIds.contains(item.id)
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                )
+                                              : ElevatedButton(
+                                                  onPressed: () =>
+                                                      _confirm(item.id),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                                    backgroundColor:
+                                                        AppTheme.terra400,
+                                                  ),
+                                                  child: const Text(
+                                                    'Confirm',
+                                                    style:
+                                                        TextStyle(fontSize: 12),
+                                                  ),
                                                 ),
-                                                backgroundColor:
-                                                    AppTheme.terra400,
-                                              ),
-                                              child: const Text(
-                                                'Confirm',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                            ),
                                     ),
                                   ],
                                 );

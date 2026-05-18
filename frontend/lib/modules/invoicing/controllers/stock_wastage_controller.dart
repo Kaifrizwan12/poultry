@@ -13,7 +13,7 @@ class StockWastageController extends ChangeNotifier {
 
   final StockWastageService _service;
   List<StockWastageModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

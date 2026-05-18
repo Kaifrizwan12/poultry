@@ -13,7 +13,7 @@ class PaymentPromiseController extends ChangeNotifier {
 
   final PaymentPromiseService _service;
   List<PaymentPromiseModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

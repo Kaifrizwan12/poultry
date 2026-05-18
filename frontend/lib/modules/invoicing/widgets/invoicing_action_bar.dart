@@ -180,9 +180,12 @@ class InvoicingActionBar extends StatelessWidget {
             TextButton(onPressed: onLoad, child: const Text('Load')),
             const SizedBox(width: 2),
           ],
-          TextButton(
-            onPressed: null, // Print placeholder
-            child: const Text('Print'),
+          Tooltip(
+            message: 'Print coming soon',
+            child: TextButton(
+              onPressed: null,
+              child: const Text('Print'),
+            ),
           ),
           const SizedBox(width: 2),
           if (onRemove != null || canRemove)
@@ -196,6 +199,9 @@ class InvoicingActionBar extends StatelessWidget {
           if (onSave != null)
             ElevatedButton(
               onPressed: isSaving ? null : onSave,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 56),
+              ),
               child: isSaving
                   ? const SizedBox(
                       width: 16, height: 16,
@@ -206,12 +212,21 @@ class InvoicingActionBar extends StatelessWidget {
           if (onSaveChanges != null) ...[
             ElevatedButton(
               onPressed: onSaveChanges,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 56),
+              ),
               child: const Text('Save Changes'),
             ),
           ],
           const SizedBox(width: 8),
           if (onClose != null)
-            OutlinedButton(onPressed: onClose, child: const Text('Close')),
+            OutlinedButton(
+              onPressed: onClose,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 56),
+              ),
+              child: const Text('Close'),
+            ),
         ],
       ),
     );
@@ -234,7 +249,7 @@ class InvoicingActionBar extends StatelessWidget {
                         ? null
                         : onSave ?? onSaveChanges ?? onLoad,
                     style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(44)),
+                        minimumSize: const Size.fromHeight(56)),
                     child: isSaving
                         ? const SizedBox(
                             width: 16, height: 16,
@@ -250,7 +265,7 @@ class InvoicingActionBar extends StatelessWidget {
                 : OutlinedButton(
                     onPressed: onClose,
                     style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(44)),
+                        minimumSize: const Size.fromHeight(56)),
                     child: const Text('Close'),
                   ),
           ),

@@ -13,7 +13,7 @@ class SalesReturnController extends ChangeNotifier {
 
   final SalesReturnService _service;
   List<SalesReturnModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

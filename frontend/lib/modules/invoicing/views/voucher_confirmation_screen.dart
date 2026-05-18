@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 
 import '../controllers/cash_voucher_controller.dart';
 import '../models/cash_voucher_model.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class VoucherConfirmationScreen extends StatefulWidget {
   const VoucherConfirmationScreen({super.key});
@@ -16,6 +19,7 @@ class VoucherConfirmationScreen extends StatefulWidget {
 
 class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
   String _typeFilter = '';
+  final Set<String> _processingIds = {};
   final _dateFromCtrl = TextEditingController();
   final _dateToCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
@@ -79,6 +83,26 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
   }
 
   Future<void> _confirm(String id) async {
+    if (_processingIds.contains(id)) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirm Voucher?'),
+        content: const Text('Mark this voucher as confirmed. This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _processingIds.add(id));
     try {
       await context.read<CashVoucherController>().confirmVoucher(id);
       if (mounted) {
@@ -91,6 +115,8 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+    } finally {
+      if (mounted) setState(() => _processingIds.remove(id));
     }
   }
 
@@ -101,6 +127,7 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
     return Consumer<CashVoucherController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         final pendingTotal = items
             .where((item) => !item.isConfirmed)
             .fold<double>(0, (sum, item) => sum + item.totalDebit);
@@ -131,6 +158,7 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
+              if (!isMobile)
               Container(
                 decoration: AppTheme.cardDecor,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -224,7 +252,25 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -233,7 +279,7 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -241,6 +287,40 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
                       style: TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      return RecordCard(
+                        id: item.voucherNo,
+                        subtitle: _typeLabel(item.voucherType),
+                        meta: AppUtils.formatDate(item.voucherDate),
+                        amount: AppUtils.fmtAmt(item.totalDebit > 0 ? item.totalDebit : item.totalCredit),
+                        trailing: _processingIds.contains(item.id)
+                            ? const SizedBox(
+                                width: 20, height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : item.isConfirmed
+                                ? const Text('Confirmed',
+                                    style: TextStyle(color: AppTheme.successText,
+                                        fontSize: 12, fontWeight: FontWeight.w600))
+                                : TextButton(
+                                    onPressed: () => _confirm(item.id),
+                                    style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: const Size(60, 32)),
+                                    child: const Text('Confirm',
+                                        style: TextStyle(color: AppTheme.terra600,
+                                            fontSize: 12, fontWeight: FontWeight.w700)),
+                                  ),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -273,11 +353,14 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
                                 final idx = entry.key;
                                 final item = entry.value;
                                 return DataRow(
-                                  color: WidgetStateProperty.resolveWith(
-                                    (states) => idx.isOdd
-                                        ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                        : Colors.transparent,
-                                  ),
+                                  color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
+                              ? AppTheme.clayBg.withValues(alpha: 0.5)
+                              : Colors.transparent;
+                        }),
                                   cells: [
                                     DataCell(
                                       Text(
@@ -286,13 +369,13 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
                                             : '—',
                                       ),
                                     ),
-                                    DataCell(Text(item.voucherDate)),
+                                    DataCell(Text(AppUtils.formatDate(item.voucherDate))),
                                     DataCell(Text(_typeLabel(item.voucherType))),
                                     DataCell(
-                                      Text(item.totalDebit.toStringAsFixed(2)),
+                                      Text(AppUtils.fmtAmt2(item.totalDebit)),
                                     ),
                                     DataCell(
-                                      Text(item.totalCredit.toStringAsFixed(2)),
+                                      Text(AppUtils.fmtAmt2(item.totalCredit)),
                                     ),
                                     DataCell(Text('${item.lines.length}')),
                                     DataCell(
@@ -315,23 +398,31 @@ class _VoucherConfirmationScreenState extends State<VoucherConfirmationScreen> {
                                                 fontSize: 12,
                                               ),
                                             )
-                                          : ElevatedButton(
-                                              onPressed: () =>
-                                                  _confirm(item.id),
-                                              style: ElevatedButton.styleFrom(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 6,
+                                          : _processingIds.contains(item.id)
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                )
+                                              : ElevatedButton(
+                                                  onPressed: () =>
+                                                      _confirm(item.id),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                                    backgroundColor:
+                                                        AppTheme.terra400,
+                                                  ),
+                                                  child: const Text(
+                                                    'Confirm',
+                                                    style:
+                                                        TextStyle(fontSize: 12),
+                                                  ),
                                                 ),
-                                                backgroundColor:
-                                                    AppTheme.terra400,
-                                              ),
-                                              child: const Text(
-                                                'Confirm',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                            ),
                                     ),
                                   ],
                                 );

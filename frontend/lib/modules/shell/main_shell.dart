@@ -1,9 +1,11 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:farm_mgt_auth/core/route_manager.dart';
 import 'package:farm_mgt_auth/modules/accounts_reports/accounts_reports_scope.dart';
+import 'package:farm_mgt_auth/modules/accounts_reports/controllers/accounts_reports_nav_controller.dart';
 import 'package:farm_mgt_auth/modules/accounts_reports/views/accounts_reports_screen.dart';
 import 'package:farm_mgt_auth/modules/auth/models/user_model.dart';
 import 'package:farm_mgt_auth/modules/home/home_screen.dart';
+import 'package:farm_mgt_auth/modules/invoicing/controllers/invoicing_nav_controller.dart';
 import 'package:farm_mgt_auth/modules/invoicing/invoicing_scope.dart';
 import 'package:farm_mgt_auth/modules/invoicing/views/invoicing_screen.dart';
 import 'package:farm_mgt_auth/modules/invoicing/views/transactions_screen.dart';
@@ -13,6 +15,7 @@ import 'package:farm_mgt_auth/modules/settings/views/settings_screen.dart';
 import 'package:farm_mgt_auth/modules/settings/widgets/settings_scope.dart';
 import 'package:farm_mgt_auth/services/local_storage_service.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -76,71 +79,100 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildMobileShell(BuildContext context, UserModel? user) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_modules[_selectedIndex].title),
-      ),
-      drawer: Drawer(
-        backgroundColor: AppTheme.sidebarBg,
-        child: Container(
-          color: AppTheme.sidebarBg,
-          child: Column(
-            children: [
-              _DrawerHeader(user: user),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                  itemCount: _modules.length,
-                  itemBuilder: (context, index) {
-                    final module = _modules[index];
-                    final selected = _selectedIndex == index;
-                    return _ShellDrawerTile(
-                      module: module,
-                      selected: selected,
-                      onTap: () {
-                        _selectModule(index);
-                        Navigator.of(context).pop();
+    return _wrapMobileModuleScope(
+      Builder(builder: (context) {
+        return Scaffold(
+          appBar: _buildMobileAppBar(context),
+          drawer: Drawer(
+            backgroundColor: AppTheme.sidebarBg,
+            child: Container(
+              color: AppTheme.sidebarBg,
+              child: Column(
+                children: [
+                  _DrawerHeader(user: user),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      itemCount: _modules.length,
+                      itemBuilder: (context, index) {
+                        final module = _modules[index];
+                        final selected = _selectedIndex == index;
+                        return _ShellDrawerTile(
+                          module: module,
+                          selected: selected,
+                          onTap: () {
+                            _selectModule(index);
+                            Navigator.of(context).pop();
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          body: _buildBody(includeModuleScope: false),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _mobileIndexFromShellIndex(_selectedIndex),
+            onTap: (value) => _selectModule(_shellIndexFromMobileIndex(value)),
+            selectedLabelStyle: AppTheme.navLabel(AppTheme.terra600),
+            unselectedLabelStyle: AppTheme.navLabel(AppTheme.textSecondary),
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.tune_outlined),
+                label: 'Settings',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.receipt_long_outlined),
+                label: 'Invoicing',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.swap_horiz_outlined),
+                label: 'Transactions',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.bar_chart_outlined),
+                label: 'Reports',
               ),
             ],
           ),
-        ),
-      ),
-      body: _buildBody(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _mobileIndexFromShellIndex(_selectedIndex),
-        onTap: (value) => _selectModule(_shellIndexFromMobileIndex(value)),
-        selectedLabelStyle: AppTheme.navLabel(AppTheme.terra600),
-        unselectedLabelStyle: AppTheme.navLabel(AppTheme.textSecondary),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.tune_outlined),
-            label: 'Settings',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            label: 'Invoicing',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.swap_horiz_outlined),
-            label: 'Transactions',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            label: 'Reports',
-          ),
-        ],
-      ),
+        );
+      }),
+    );
+  }
+
+  Widget _wrapMobileModuleScope(Widget child) {
+    switch (_selectedIndex) {
+      case 2:
+      case 3:
+        return InvoicingScope(child: child);
+      case 5:
+        return AccountsReportsScope(child: child);
+      default:
+        return child;
+    }
+  }
+
+  PreferredSizeWidget? _buildMobileAppBar(BuildContext context) {
+    if (_selectedIndex == 2 || _selectedIndex == 3) {
+      final nav = context.watch<InvoicingNavController>();
+      if (!nav.showMobileMenu) return null;
+    }
+    if (_selectedIndex == 5) {
+      final nav = context.watch<AccountsReportsNavController>();
+      if (nav.selectedSection != 'menu') return null;
+    }
+
+    return AppBar(
+      title: Text(_modules[_selectedIndex].title),
     );
   }
 
@@ -317,7 +349,7 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBody({bool includeModuleScope = true}) {
     switch (_selectedIndex) {
       case 0:
         return const HomeScreen();
@@ -328,13 +360,19 @@ class _MainShellState extends State<MainShell> {
           },
         );
       case 2:
-        return const InvoicingScope(child: InvoicingScreen());
+        return includeModuleScope
+            ? const InvoicingScope(child: InvoicingScreen())
+            : const InvoicingScreen();
       case 3:
-        return const InvoicingScope(child: TransactionsScreen());
+        return includeModuleScope
+            ? const InvoicingScope(child: TransactionsScreen())
+            : const TransactionsScreen();
       case 4:
         return const PoultryScope(child: PoultryScreen());
       case 5:
-        return const AccountsReportsScope(child: AccountsReportsScreen());
+        return includeModuleScope
+            ? const AccountsReportsScope(child: AccountsReportsScreen())
+            : const AccountsReportsScreen();
       default:
         return _PlaceholderModule(title: _modules[_selectedIndex].title);
     }

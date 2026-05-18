@@ -13,7 +13,7 @@ class ExpiryClaimController extends ChangeNotifier {
 
   final ExpiryClaimService _service;
   List<ExpiryClaimModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

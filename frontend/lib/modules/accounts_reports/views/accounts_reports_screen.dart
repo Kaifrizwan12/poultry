@@ -22,6 +22,12 @@ class AccountsReportsScreen extends StatelessWidget {
           return _MobileLayout(nav: nav);
         }
 
+        if (nav.selectedSection == 'menu') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) nav.selectSection('ledger_entries');
+          });
+        }
+
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -232,44 +238,53 @@ class _MobileLayout extends StatelessWidget {
     // Drill-in: by-account view
     if (nav.selectedSection == 'account_ledger_view' &&
         nav.selectedAccountId != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Account Ledger'),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: nav.backToList,
+      return Column(
+        children: [
+          _MobileSubPageHeader(title: 'Account Ledger', onBack: nav.backToList),
+          Expanded(
+            child: Padding(
+              padding: AppTheme.pagePadding(context),
+              child: LedgerByAccountScreen(accountId: nav.selectedAccountId!),
+            ),
           ),
-        ),
-        body: Padding(
-          padding: AppTheme.pagePadding(context),
-          child: LedgerByAccountScreen(accountId: nav.selectedAccountId!),
-        ),
+        ],
       );
     }
 
     // Section selected (not menu) — show with back button
     if (nav.selectedSection != 'menu' &&
         nav.selectedSection != 'ledger_entries') {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(_labelFor(nav.selectedSection)),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: () => nav.selectSection('menu'),
+      return Column(
+        children: [
+          _MobileSubPageHeader(
+            title: _labelFor(nav.selectedSection),
+            onBack: () => nav.selectSection('menu'),
           ),
-        ),
-        body: Padding(
-          padding: AppTheme.pagePadding(context),
-          child: _sectionWidget(nav.selectedSection),
-        ),
+          Expanded(
+            child: Padding(
+              padding: AppTheme.pagePadding(context),
+              child: _sectionWidget(nav.selectedSection),
+            ),
+          ),
+        ],
       );
     }
 
     // Default / 'ledger_entries' section
     if (nav.selectedSection == 'ledger_entries') {
-      return Padding(
-        padding: AppTheme.pagePadding(context),
-        child: const LedgerListScreen(),
+      return Column(
+        children: [
+          _MobileSubPageHeader(
+            title: _labelFor(nav.selectedSection),
+            onBack: () => nav.selectSection('menu'),
+          ),
+          Expanded(
+            child: Padding(
+              padding: AppTheme.pagePadding(context),
+              child: const LedgerListScreen(),
+            ),
+          ),
+        ],
       );
     }
 
@@ -337,5 +352,44 @@ class _MobileLayout extends StatelessWidget {
       if (item.id == section) return item.label;
     }
     return 'Reports';
+  }
+}
+
+// ─── Mobile sub-page header (replaces nested Scaffold AppBar) ─────────────────
+
+class _MobileSubPageHeader extends StatelessWidget {
+  const _MobileSubPageHeader({required this.title, required this.onBack});
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = Theme.of(context).appBarTheme.backgroundColor ??
+        Theme.of(context).colorScheme.surface;
+    return Material(
+      color: bg,
+      elevation: 1,
+      child: SizedBox(
+        height: kToolbarHeight,
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+              onPressed: onBack,
+              tooltip: 'Back',
+            ),
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

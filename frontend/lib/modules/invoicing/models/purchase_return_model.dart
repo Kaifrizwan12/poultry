@@ -9,10 +9,11 @@ class PurchaseReturnModel extends BaseSettingsModel {
     return PurchaseReturnModel(id: '${map['id'] ?? ''}', data: d);
   }
 
-  String get returnId          => text('returnId');
-  String get returnType        => text('returnType');
-  String get returnDate        => text('returnDate');
-  String get purchaseInvoiceId => text('purchaseInvoiceId');
+  String get returnId            => text('returnId');
+  String get returnType          => text('returnType');
+  String get returnDate          => text('returnDate');
+  String get purchaseInvoiceId   => text('purchaseInvoiceId');
+  String get purchaseInvoiceRef  => text('purchaseInvoiceRef');
   String get vendorId          => text('vendorId');
   String get vendorName        => text('vendorName');
 

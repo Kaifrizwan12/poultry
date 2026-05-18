@@ -18,7 +18,7 @@ class LedgerController extends ChangeNotifier {
 
   List<LedgerEntry> _items  = [];
   LedgerViewModel? _accountView;
-  bool _isLoading            = false;
+  bool _isLoading            = true;
   String? _error;
   bool _isOfflineData        = false;
 

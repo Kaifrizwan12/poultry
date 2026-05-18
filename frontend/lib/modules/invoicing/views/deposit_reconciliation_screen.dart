@@ -6,6 +6,9 @@ import 'package:provider/provider.dart';
 
 import '../controllers/bank_deposit_controller.dart';
 import '../models/bank_deposit_model.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class DepositReconciliationScreen extends StatefulWidget {
   const DepositReconciliationScreen({super.key});
@@ -21,6 +24,7 @@ class _DepositReconciliationScreenState
   final _yearMonthCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   final Map<String, TextEditingController> _stmtRefControllers = {};
+  final Set<String> _processingIds = {};
 
   @override
   void initState() {
@@ -77,6 +81,26 @@ class _DepositReconciliationScreenState
   }
 
   Future<void> _reconcile(String id) async {
+    if (_processingIds.contains(id)) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Reconcile Deposit?'),
+        content: const Text('Mark this deposit as reconciled against the bank statement. This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reconcile'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _processingIds.add(id));
     final ref = _stmtRefControllers[id]?.text ?? '';
     try {
       await context.read<BankDepositController>().reconcile(
@@ -93,6 +117,8 @@ class _DepositReconciliationScreenState
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
+    } finally {
+      if (mounted) setState(() => _processingIds.remove(id));
     }
   }
 
@@ -104,6 +130,7 @@ class _DepositReconciliationScreenState
     return Consumer<BankDepositController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         final total = items.fold<double>(0, (sum, item) => sum + item.amount);
         final reconciled = items
             .where((item) => item.isReconciled)
@@ -136,6 +163,7 @@ class _DepositReconciliationScreenState
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
+              if (!isMobile)
               Container(
                 decoration: AppTheme.cardDecor,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -191,7 +219,25 @@ class _DepositReconciliationScreenState
                 ),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -200,7 +246,7 @@ class _DepositReconciliationScreenState
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -208,6 +254,45 @@ class _DepositReconciliationScreenState
                       style: TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      return RecordCard(
+                        id: item.depositId,
+                        subtitle: item.depositType.toUpperCase(),
+                        meta: AppUtils.formatDate(item.depositDate),
+                        amount: AppUtils.fmtAmt(item.amount),
+                        trailing: _processingIds.contains(item.id)
+                            ? const SizedBox(
+                                width: 20, height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : item.isReconciled
+                                ? const Tooltip(
+                                    message: 'Already reconciled',
+                                    child: Text('Reconciled',
+                                        style: TextStyle(
+                                            color: AppTheme.successText,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600)),
+                                  )
+                                : TextButton(
+                                    onPressed: () => _reconcile(item.id),
+                                    style: TextButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: const Size(76, 32)),
+                                    child: const Text('Reconcile',
+                                        style: TextStyle(color: AppTheme.terra600,
+                                            fontSize: 12, fontWeight: FontWeight.w700)),
+                                  ),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -240,11 +325,14 @@ class _DepositReconciliationScreenState
                                 final idx = entry.key;
                                 final item = entry.value;
                                 return DataRow(
-                                  color: WidgetStateProperty.resolveWith(
-                                    (states) => idx.isOdd
-                                        ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                        : Colors.transparent,
-                                  ),
+                                  color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
+                              ? AppTheme.clayBg.withValues(alpha: 0.5)
+                              : Colors.transparent;
+                        }),
                                   cells: [
                                     DataCell(
                                       Text(
@@ -253,10 +341,10 @@ class _DepositReconciliationScreenState
                                             : '—',
                                       ),
                                     ),
-                                    DataCell(Text(item.depositDate)),
+                                    DataCell(Text(AppUtils.formatDate(item.depositDate))),
                                     DataCell(Text(item.depositType)),
                                     DataCell(
-                                      Text(item.amount.toStringAsFixed(2)),
+                                      Text(AppUtils.fmtAmt2(item.amount)),
                                     ),
                                     DataCell(
                                       Icon(
@@ -292,30 +380,41 @@ class _DepositReconciliationScreenState
                                     ),
                                     DataCell(
                                       item.isReconciled
-                                          ? const Text(
-                                              'Reconciled',
-                                              style: TextStyle(
-                                                color: AppTheme.successText,
-                                                fontSize: 12,
+                                          ? const Tooltip(
+                                              message: 'Already reconciled',
+                                              child: Text(
+                                                'Reconciled',
+                                                style: TextStyle(
+                                                  color: AppTheme.successText,
+                                                  fontSize: 12,
+                                                ),
                                               ),
                                             )
-                                          : ElevatedButton(
-                                              onPressed: () =>
-                                                  _reconcile(item.id),
-                                              style: ElevatedButton.styleFrom(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 6,
+                                          : _processingIds.contains(item.id)
+                                              ? const SizedBox(
+                                                  width: 20,
+                                                  height: 20,
+                                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                                )
+                                              : ElevatedButton(
+                                                  onPressed: () =>
+                                                      _reconcile(item.id),
+                                                  style:
+                                                      ElevatedButton.styleFrom(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 6,
+                                                    ),
+                                                    backgroundColor:
+                                                        AppTheme.terra400,
+                                                  ),
+                                                  child: const Text(
+                                                    'Reconcile',
+                                                    style:
+                                                        TextStyle(fontSize: 12),
+                                                  ),
                                                 ),
-                                                backgroundColor:
-                                                    AppTheme.terra400,
-                                              ),
-                                              child: const Text(
-                                                'Reconcile',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                            ),
                                     ),
                                   ],
                                 );

@@ -3,10 +3,14 @@ import 'package:farm_mgt_auth/modules/settings/models/packing.dart';
 import 'package:farm_mgt_auth/modules/settings/models/product.dart';
 import 'package:farm_mgt_auth/modules/settings/models/unit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:farm_mgt_auth/modules/settings/controllers/packings_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/units_controller.dart';
+
+final _decimalFormatter =
+    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'));
 
 class InvoiceLineItemRow extends StatefulWidget {
   const InvoiceLineItemRow({
@@ -15,6 +19,7 @@ class InvoiceLineItemRow extends StatefulWidget {
     required this.onAdd,
     required this.products,
     this.initialValues,
+    this.onCancel,
   });
 
   final bool isPurchase;
@@ -23,6 +28,10 @@ class InvoiceLineItemRow extends StatefulWidget {
 
   /// When non-null the row pre-fills all fields (edit mode).
   final Map<String, dynamic>? initialValues;
+
+  /// Called when the user cancels an in-progress edit. The parent is
+  /// responsible for re-inserting the original item back into the list.
+  final VoidCallback? onCancel;
 
   @override
   State<InvoiceLineItemRow> createState() => _InvoiceLineItemRowState();
@@ -270,6 +279,7 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
               controller: _qtyPacksCtrl,
               decoration: _dec('Qty(P)'),
               keyboardType: TextInputType.number,
+              inputFormatters: [_decimalFormatter],
               onChanged: (_) => _recalc(),
             ),
           ),
@@ -279,6 +289,7 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
               controller: _qtyLooseCtrl,
               decoration: _dec('Qty(L)'),
               keyboardType: TextInputType.number,
+              inputFormatters: [_decimalFormatter],
               onChanged: (_) => _recalc(),
             ),
           ),
@@ -288,6 +299,7 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
               controller: _bonusCtrl,
               decoration: _dec('Bonus'),
               keyboardType: TextInputType.number,
+              inputFormatters: [_decimalFormatter],
             ),
           ),
           SizedBox(
@@ -314,6 +326,7 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
               controller: _priceCtrl,
               decoration: _dec('Price'),
               keyboardType: TextInputType.number,
+              inputFormatters: [_decimalFormatter],
               onChanged: (_) => _recalc(),
             ),
           ),
@@ -323,6 +336,7 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
               controller: _discPctCtrl,
               decoration: _dec('Disc%'),
               keyboardType: TextInputType.number,
+              inputFormatters: [_decimalFormatter],
               onChanged: (_) => _recalc(),
             ),
           ),
@@ -361,9 +375,20 @@ class _InvoiceLineItemRowState extends State<InvoiceLineItemRow> {
             ),
             label: Text(widget.initialValues != null ? 'Update' : 'Add'),
             style: ElevatedButton.styleFrom(
+              minimumSize: const Size(0, 56),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
           ),
+          if (widget.onCancel != null)
+            OutlinedButton.icon(
+              onPressed: widget.onCancel,
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text('Cancel'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 56),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              ),
+            ),
         ],
       ),
     );

@@ -13,7 +13,7 @@ class PurchaseInvoiceController extends ChangeNotifier {
 
   final PurchaseInvoiceService _service;
   List<PurchaseInvoiceModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

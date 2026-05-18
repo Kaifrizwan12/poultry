@@ -454,14 +454,8 @@ class _CategoryCrudView extends StatelessWidget {
   }
 
   Widget _buildList(BuildContext context, SettingsCrudController controller) {
-    if (controller.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     if (controller.error != null) {
-      return Center(
-        child: Text(controller.error!),
-      );
+      return Center(child: Text(controller.error!));
     }
 
     final items = controller.filteredItems;
@@ -492,24 +486,38 @@ class _CategoryCrudView extends StatelessWidget {
       );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _SettingsRecordCard(
-          titleLabel: _fieldForKey(category.listTitleKey)?.label ??
-              _humanizeKey(category.listTitleKey),
-          titleValue: _displayValue(context, category.listTitleKey, item),
-          rows: _listRowKeys()
-              .map((key) => _metadataRow(context, key, item))
-              .whereType<_MetadataRow>()
-              .toList(),
-          onEdit: () => _openEditor(context, controller, category, item),
-          onDelete: () => _confirmDelete(context, controller, item),
-        );
-      },
+    // Data exists — keep list visible; show slim bar at top during reload
+    return Column(
+      children: [
+        if (controller.isLoading)
+          LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: Colors.transparent,
+            color: AppTheme.terra400,
+          ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return _SettingsRecordCard(
+                titleLabel: _fieldForKey(category.listTitleKey)?.label ??
+                    _humanizeKey(category.listTitleKey),
+                titleValue:
+                    _displayValue(context, category.listTitleKey, item),
+                rows: _listRowKeys()
+                    .map((key) => _metadataRow(context, key, item))
+                    .whereType<_MetadataRow>()
+                    .toList(),
+                onEdit: () => _openEditor(context, controller, category, item),
+                onDelete: () => _confirmDelete(context, controller, item),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

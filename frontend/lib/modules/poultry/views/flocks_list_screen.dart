@@ -2,17 +2,14 @@ import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/settings_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/models/lookup_option.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/vendors_controller.dart';
-import 'package:farm_mgt_auth/modules/settings/controllers/products_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 
-import '../config/poultry_definitions.dart';
 import '../controllers/flock_controller.dart';
 import '../controllers/feed_schedule_controller.dart';
 import '../controllers/vaccine_schedule_controller.dart';
 import '../controllers/poultry_nav_controller.dart';
-import '../models/flock_model.dart';
 import '../widgets/flock_card.dart';
 import 'flock_form_dialog.dart';
 
@@ -174,8 +171,6 @@ class _FlockGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (flockCtrl.isLoading)
-      return const Center(child: CircularProgressIndicator());
     if (flockCtrl.error != null) {
       return Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -202,26 +197,38 @@ class _FlockGrid extends StatelessWidget {
       ]));
     }
 
-    return LayoutBuilder(builder: (context, constraints) {
-      final cols = constraints.maxWidth > 900
-          ? 3
-          : constraints.maxWidth > 600
-              ? 2
-              : 1;
-      return GridView.builder(
-        padding: EdgeInsets.zero,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cols,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.6,
+    return Column(
+      children: [
+        if (flockCtrl.isLoading)
+          LinearProgressIndicator(
+            minHeight: 2,
+            backgroundColor: Colors.transparent,
+            color: AppTheme.terra400,
+          ),
+        Expanded(
+          child: LayoutBuilder(builder: (context, constraints) {
+            final cols = constraints.maxWidth > 900
+                ? 3
+                : constraints.maxWidth > 600
+                    ? 2
+                    : 1;
+            return GridView.builder(
+              padding: EdgeInsets.zero,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cols,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.6,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) => FlockCard(
+                flock: items[index],
+                onTap: () => navCtrl.openFlock(items[index].id),
+              ),
+            );
+          }),
         ),
-        itemCount: items.length,
-        itemBuilder: (context, index) => FlockCard(
-          flock: items[index],
-          onTap: () => navCtrl.openFlock(items[index].id),
-        ),
-      );
-    });
+      ],
+    );
   }
 }

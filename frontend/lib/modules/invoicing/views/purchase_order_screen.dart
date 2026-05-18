@@ -1,4 +1,6 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
+import 'package:farm_mgt_auth/core/responsive_search_filter_bar.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/packings_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/products_controller.dart';
@@ -13,6 +15,11 @@ import '../widgets/invoice_line_item_row.dart';
 import '../widgets/invoice_totals_footer.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
+import 'package:farm_mgt_auth/core/line_item_card.dart';
+
 
 class PurchaseOrderScreen extends StatefulWidget {
   const PurchaseOrderScreen({super.key});
@@ -42,10 +49,9 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
   }
 
   Future<void> _openForm({PurchaseOrderModel? initial}) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(
             value: context.read<PurchaseOrderController>(),
@@ -94,6 +100,7 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
     return Consumer<PurchaseOrderController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -101,54 +108,52 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
             children: [
               Row(
                 children: [
-                  Text(
-                    'Purchase Orders',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Text(
+                      'Purchase Orders',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Purchase Order'),
+                    label: 'New Purchase Order',
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _searchCtrl,
-                      decoration: AppTheme.inputDecoration(
-                        null,
-                        hintText: 'Search by order ID, vendor, city or date',
-                        prefixIcon:
-                            const Icon(Icons.search_outlined, size: 18),
-                        suffixIcon: _searchCtrl.text.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 18),
-                                padding: EdgeInsets.zero,
-                                onPressed: () =>
-                                    setState(() => _searchCtrl.clear()),
-                              )
-                            : null,
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
+              ResponsiveSearchFilterBar(
+                search: TextFormField(
+                  controller: _searchCtrl,
+                  decoration: AppTheme.inputDecoration(
+                    null,
+                    hintText: 'Search by order ID, vendor, city or date',
+                    prefixIcon: const Icon(Icons.search_outlined, size: 18),
+                    suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            padding: EdgeInsets.zero,
+                            tooltip: 'Clear search',
+                            onPressed: () =>
+                                setState(() => _searchCtrl.clear()),
+                          )
+                        : null,
                   ),
-                  const SizedBox(width: 10),
+                  onChanged: (_) => setState(() {}),
+                ),
+                filters: [
                   _FilterChip(
                     label: 'All',
                     selected: _filter == 'all',
                     onTap: () => setState(() => _filter = 'all'),
                   ),
-                  const SizedBox(width: 6),
                   _FilterChip(
                     label: 'Saved',
                     selected: _filter == 'saved',
                     onTap: () => setState(() => _filter = 'saved'),
                   ),
-                  const SizedBox(width: 6),
                   _FilterChip(
                     label: 'Pending',
                     selected: _filter == 'pending',
@@ -157,7 +162,25 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -186,7 +209,7 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
@@ -194,6 +217,25 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
                       style: const TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      return RecordCard(
+                        id: item.orderId,
+                        subtitle: item.vendorName,
+                        meta: AppUtils.formatDate(item.entryDate),
+                        amount: AppUtils.fmtAmt(item.netValue),
+                        badge: _StatusBadge(status: item.status),
+                        onTap: () => _openForm(initial: item),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -226,6 +268,9 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -248,7 +293,7 @@ class _PurchaseOrderScreenState extends State<PurchaseOrderScreen> {
                                 ),
                                 DataCell(_StatusBadge(status: item.status)),
                                 DataCell(Text('${item.items.length}')),
-                                DataCell(Text(item.netValue.toStringAsFixed(0))),
+                                DataCell(Text(AppUtils.fmtAmt(item.netValue))),
                               ],
                             );
                           }).toList(),
@@ -281,6 +326,7 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
   final ValueNotifier<List<Map<String, dynamic>>> _itemsNotifier =
       ValueNotifier([]);
   Map<String, dynamic>? _editingItem;
+  int? _editingItemOriginalIndex;
   int _entryRowKey = 0;
 
   final _entryDateCtrl = TextEditingController(
@@ -330,6 +376,7 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
       _vendorId = '';
       _editingItem = null;
       _entryRowKey++;
+      _editingItemOriginalIndex = null;
     });
     _entryDateCtrl.text = DateTime.now().toIso8601String().substring(0, 10);
     _vendorNameCtrl.clear();
@@ -384,6 +431,20 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
   }
 
   Future<void> _save(String status) async {
+    if (_vendorId.isEmpty) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a vendor')));
+    }
+    return;
+    }
+    if (_itemsNotifier.value.isEmpty) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one item')));
+    }
+    return;
+    }
     if (_isSaving) return;
     setState(() => _isSaving = true);
     try {
@@ -397,22 +458,18 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload(status));
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              status == 'saved' ? 'Saved successfully' : 'Saved as pending',
-            ),
-          ),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(SnackBar(
+        content: Text(status == 'saved' ? 'Saved successfully' : 'Saved as pending'),
+      ));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -449,9 +506,24 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
     updatedItems.removeAt(index);
     setState(() {
       _editingItem = Map<String, dynamic>.from(item);
+      _editingItemOriginalIndex = index;
       _entryRowKey++;
     });
     _itemsNotifier.value = updatedItems;
+  }
+
+  void _cancelEditingItem() {
+    final item = _editingItem;
+    final idx = _editingItemOriginalIndex;
+    setState(() {
+      _editingItem = null;
+      _editingItemOriginalIndex = null;
+      _entryRowKey++;
+    });
+    if (item == null) return;
+    final items = [..._itemsNotifier.value];
+    items.insert((idx ?? items.length).clamp(0, items.length), item);
+    _itemsNotifier.value = items;
   }
 
   void _addItem(Map<String, dynamic> item) {
@@ -566,6 +638,7 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
             isPurchase: true,
             products: products,
             initialValues: _editingItem,
+            onCancel: _editingItem != null ? _cancelEditingItem : null,
             onAdd: _addItem,
           ),
           const SizedBox(height: 12),
@@ -579,6 +652,31 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
                     'No items added yet.',
                     style: TextStyle(color: AppTheme.textSecondary),
                   ),
+                );
+              }
+              if (MediaQuery.of(context).size.width < 600) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      decoration: AppTheme.cardDecor,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: items.asMap().entries.map((entry) {
+                          return LineItemCard(
+                            index: entry.key,
+                            item: entry.value,
+                            onEdit: () => _startEditingItem(entry.key, entry.value),
+                            onDelete: () {
+                              final u = [..._itemsNotifier.value];
+                              u.removeAt(entry.key);
+                              _itemsNotifier.value = u;
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 );
               }
               return Column(
@@ -613,11 +711,14 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
                           final idx = entry.key;
                           final item = entry.value;
                           return DataRow(
-                            color: WidgetStateProperty.resolveWith(
-                              (_) => idx.isOdd
+                            color: WidgetStateProperty.resolveWith((states) {
+                              if (states.contains(WidgetState.pressed)) {
+                                return AppTheme.terra50;
+                              }
+                              return idx.isOdd
                                   ? AppTheme.clayBg.withValues(alpha: 0.4)
-                                  : Colors.transparent,
-                            ),
+                                  : Colors.transparent;
+                            }),
                             cells: [
                               DataCell(Text('${idx + 1}')),
                               DataCell(Text(item['productName'] ?? '')),

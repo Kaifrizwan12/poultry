@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 class AccountsReportsNavController extends ChangeNotifier {
-  String _selectedSection = 'ledger_entries';
+  String _selectedSection = 'menu';
   String? _selectedAccountId;
 
   String get selectedSection => _selectedSection;
@@ -25,7 +25,7 @@ class AccountsReportsNavController extends ChangeNotifier {
 
   void backToList() {
     _selectedAccountId = null;
-    _selectedSection = 'ledger_entries';
+    _selectedSection = 'menu';
     notifyListeners();
   }
 }

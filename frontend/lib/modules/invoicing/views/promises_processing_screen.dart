@@ -5,6 +5,9 @@ import 'package:provider/provider.dart';
 
 import '../controllers/payment_promise_controller.dart';
 import '../models/payment_promise_model.dart';
+import 'package:farm_mgt_auth/core/app_utils.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class PromisesProcessingScreen extends StatefulWidget {
   const PromisesProcessingScreen({super.key});
@@ -95,6 +98,7 @@ class _PromisesProcessingScreenState extends State<PromisesProcessingScreen> {
     return Consumer<PaymentPromiseController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         final totalDue = items.fold<double>(0, (sum, item) => sum + item.amount);
         final cleared = items
             .where((item) => item.status == 'cleared')
@@ -129,6 +133,7 @@ class _PromisesProcessingScreenState extends State<PromisesProcessingScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
+              if (!isMobile)
               Container(
                 decoration: AppTheme.cardDecor,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -228,7 +233,25 @@ class _PromisesProcessingScreenState extends State<PromisesProcessingScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -237,7 +260,7 @@ class _PromisesProcessingScreenState extends State<PromisesProcessingScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -245,6 +268,43 @@ class _PromisesProcessingScreenState extends State<PromisesProcessingScreen> {
                       style: TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      final party = item.promiseType == 'recovery'
+                          ? item.customerName : item.vendorName;
+                      return RecordCard(
+                        id: item.promiseId,
+                        subtitle: party,
+                        meta: AppUtils.formatDate(item.promiseDate),
+                        amount: AppUtils.fmtAmt(item.amount),
+                        badge: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: item.status == 'pending'
+                              ? AppTheme.warningBg
+                              : item.status == 'cleared'
+                                  ? AppTheme.successBg : AppTheme.dangerBg,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Text(item.status,
+                          style: TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600,
+                            color: item.status == 'pending'
+                                ? AppTheme.warningText
+                                : item.status == 'cleared'
+                                    ? AppTheme.successText : AppTheme.dangerText,
+                          )),
+                      ),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -281,11 +341,14 @@ class _PromisesProcessingScreenState extends State<PromisesProcessingScreen> {
                                     : item.vendorName;
                                 final isPending = item.status == 'pending';
                                 return DataRow(
-                                  color: WidgetStateProperty.resolveWith(
-                                    (states) => idx.isOdd
-                                        ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                        : Colors.transparent,
-                                  ),
+                                  color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
+                              ? AppTheme.clayBg.withValues(alpha: 0.5)
+                              : Colors.transparent;
+                        }),
                                   cells: [
                                     DataCell(
                                       Text(
@@ -295,11 +358,11 @@ class _PromisesProcessingScreenState extends State<PromisesProcessingScreen> {
                                       ),
                                     ),
                                     DataCell(Text(item.promiseType)),
-                                    DataCell(Text(item.promiseDate)),
+                                    DataCell(Text(AppUtils.formatDate(item.promiseDate))),
                                     DataCell(Text(party)),
                                     DataCell(Text(item.chequeNo)),
                                     DataCell(
-                                      Text(item.amount.toStringAsFixed(2)),
+                                      Text(AppUtils.fmtAmt2(item.amount)),
                                     ),
                                     DataCell(
                                       Container(

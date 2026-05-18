@@ -4,7 +4,6 @@ import 'package:farm_mgt_auth/modules/settings/controllers/products_controller.d
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config/poultry_definitions.dart';
 import '../controllers/flock_feed_controller.dart';
 import '../controllers/feed_schedule_controller.dart';
 import '../models/flock_model.dart';
@@ -213,7 +212,6 @@ class _FeedFormState extends State<_FeedForm> {
   bool _saving = false;
   double _standardFeedKg = 0;
   double _feedVarianceKg = 0;
-  double _totalDoseUsed = 0;
 
   @override
   void initState() {

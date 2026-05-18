@@ -1,5 +1,9 @@
+import 'package:farm_mgt_auth/core/app_utils.dart';
 import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
+import 'package:farm_mgt_auth/core/line_item_card.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/packings_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/products_controller.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/salesmen_controller.dart';
@@ -40,10 +44,9 @@ class _StockIssueScreenState extends State<StockIssueScreen> {
   }
 
   Future<void> _openForm({StockIssueModel? initial}) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(
             value: context.read<StockIssueController>(),
@@ -68,9 +71,8 @@ class _StockIssueScreenState extends State<StockIssueScreen> {
 
   List<StockIssueModel> _visibleItems(StockIssueController ctrl) {
     final q = _searchCtrl.text.trim().toLowerCase();
-    final items = ctrl.items
-        .where((item) => item.issueType == widget.issueType)
-        .toList();
+    final items =
+        ctrl.items.where((item) => item.issueType == widget.issueType).toList();
     if (q.isEmpty) return items;
     return items.where((item) {
       return item.issueId.toLowerCase().contains(q) ||
@@ -81,10 +83,10 @@ class _StockIssueScreenState extends State<StockIssueScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final isReturn = widget.issueType == 'return';
-    final title = isReturn
-        ? 'Stock Returns from Salesmen'
-        : 'Stock Issues to Salesmen';
+    final title =
+        isReturn ? 'Stock Returns from Salesmen' : 'Stock Issues to Salesmen';
     return Consumer<StockIssueController>(
       builder: (context, ctrl, _) {
         final scopedItems = ctrl.items
@@ -98,14 +100,18 @@ class _StockIssueScreenState extends State<StockIssueScreen> {
             children: [
               Row(
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.titleLarge),
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(
-                      isReturn ? 'New Stock Return' : 'New Stock Issue',
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
+                    onPressed: () => _openForm(),
+                    label: isReturn ? 'New Stock Return' : 'New Stock Issue',
                   ),
                 ],
               ),
@@ -127,7 +133,15 @@ class _StockIssueScreenState extends State<StockIssueScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (scopedItems.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (scopedItems.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -162,13 +176,35 @@ class _StockIssueScreenState extends State<StockIssueScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Text(
                       'No matches for "${_searchCtrl.text}".',
                       style: const TextStyle(color: AppTheme.textSecondary),
                     ),
+                  ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.only(top: 2, bottom: 8),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return RecordCard(
+                        id: item.issueId,
+                        subtitle: item.salesmanName,
+                        meta: AppUtils.formatDate(item.date),
+                        amount: AppUtils.fmtAmt(item.netValue),
+                        badge: _MiniBadge(
+                          label:
+                              '${item.items.length} item${item.items.length == 1 ? '' : 's'}',
+                        ),
+                        onTap: () => _openForm(initial: item),
+                      );
+                    },
                   ),
                 )
               else
@@ -200,6 +236,9 @@ class _StockIssueScreenState extends State<StockIssueScreen> {
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -233,6 +272,32 @@ class _StockIssueScreenState extends State<StockIssueScreen> {
   }
 }
 
+class _MiniBadge extends StatelessWidget {
+  const _MiniBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppTheme.clayBg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppTheme.softBorder),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppTheme.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _StockIssueFormDialog extends StatefulWidget {
   const _StockIssueFormDialog({required this.issueType, this.initial});
 
@@ -249,6 +314,7 @@ class _StockIssueFormDialogState extends State<_StockIssueFormDialog> {
   final ValueNotifier<List<Map<String, dynamic>>> _itemsNotifier =
       ValueNotifier([]);
   Map<String, dynamic>? _editingItem;
+  int? _editingItemOriginalIndex;
 
   final _dateCtrl = TextEditingController(
     text: DateTime.now().toIso8601String().substring(0, 10),
@@ -300,6 +366,7 @@ class _StockIssueFormDialogState extends State<_StockIssueFormDialog> {
       _lineCost = 0;
       _lineValue = 0;
       _editingItem = null;
+      _editingItemOriginalIndex = null;
     });
     _lineQtyPacksCtrl.text = '0';
     _lineQtyLooseCtrl.text = '0';
@@ -336,8 +403,19 @@ class _StockIssueFormDialogState extends State<_StockIssueFormDialog> {
   void _startEditingItem(int index, Map<String, dynamic> item) {
     final updatedItems = [..._itemsNotifier.value];
     updatedItems.removeAt(index);
+    _editingItemOriginalIndex = index;
     _itemsNotifier.value = updatedItems;
     _setLineFromItem(item);
+  }
+
+  void _cancelEditLineEntry() {
+    final item = _editingItem;
+    final idx = _editingItemOriginalIndex;
+    _clearLineEntry();
+    if (item == null) return;
+    final items = [..._itemsNotifier.value];
+    items.insert((idx ?? items.length).clamp(0, items.length), item);
+    _itemsNotifier.value = items;
   }
 
   void _onLineProductChanged(String? productId) {
@@ -447,18 +525,17 @@ class _StockIssueFormDialogState extends State<_StockIssueFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, _buildPayload());
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger
+          .showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -494,14 +571,14 @@ class _StockIssueFormDialogState extends State<_StockIssueFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final salesmen = context.watch<SalesmenController>().typedItems;
     final products = context.watch<ProductsController>().typedItems;
     final packings = context.watch<PackingsController>().typedItems;
     final issues = context.watch<StockIssueController>().items;
     final isReturn = widget.issueType == 'return';
-    final title = isReturn
-        ? 'Stock Return from Salesman'
-        : 'Stock Issue to Salesman';
+    final title =
+        isReturn ? 'Stock Return from Salesman' : 'Stock Issue to Salesman';
 
     return InvoicingFormDialog(
       title: title,
@@ -527,8 +604,7 @@ class _StockIssueFormDialogState extends State<_StockIssueFormDialog> {
                       final picked = await showDatePicker(
                         context: context,
                         initialDate:
-                            DateTime.tryParse(_dateCtrl.text) ??
-                                DateTime.now(),
+                            DateTime.tryParse(_dateCtrl.text) ?? DateTime.now(),
                         firstDate: DateTime(2000),
                         lastDate: DateTime(2100),
                       );
@@ -732,7 +808,7 @@ class _StockIssueFormDialogState extends State<_StockIssueFormDialog> {
                 ),
                 if (_editingItem != null)
                   OutlinedButton(
-                    onPressed: _clearLineEntry,
+                    onPressed: _cancelEditLineEntry,
                     child: const Text('Cancel Edit'),
                   ),
               ],
@@ -758,92 +834,127 @@ class _StockIssueFormDialogState extends State<_StockIssueFormDialog> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: AppTheme.cardDecor,
-                    child: HorizontalScrollWheel(
-                      child: DataTable(
-                        headingRowColor:
-                            WidgetStateProperty.all(AppTheme.clayBg),
-                        columnSpacing: 16,
-                        horizontalMargin: 12,
-                        dataRowMinHeight: 30,
-                        dataRowMaxHeight: 36,
-                        columns: const [
-                          DataColumn(label: Text('#')),
-                          DataColumn(label: Text('Product')),
-                          DataColumn(label: Text('Packing')),
-                          DataColumn(label: Text('Pack')),
-                          DataColumn(label: Text('Qty(P)')),
-                          DataColumn(label: Text('Qty(L)')),
-                          DataColumn(label: Text('Cost')),
-                          DataColumn(label: Text('Value')),
-                          DataColumn(label: Text('')),
-                        ],
-                        rows: items.asMap().entries.map((entry) {
-                          final idx = entry.key;
-                          final item = entry.value;
-                          return DataRow(
-                            color: WidgetStateProperty.resolveWith(
-                              (states) => idx.isOdd
-                                  ? AppTheme.clayBg.withValues(alpha: 0.5)
-                                  : Colors.transparent,
-                            ),
-                            cells: [
-                              DataCell(Text('${idx + 1}')),
-                              DataCell(Text('${item['productName'] ?? ''}')),
-                              DataCell(Text('${item['packingName'] ?? ''}')),
-                              DataCell(Text('${item['pack'] ?? ''}')),
-                              DataCell(Text('${item['qtyPacks'] ?? ''}')),
-                              DataCell(Text('${item['qtyLoose'] ?? ''}')),
-                              DataCell(
-                                Text(
-                                  ((item['cost'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2),
+                  if (isMobile)
+                    Column(
+                      children: items.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final item = entry.value;
+                        final displayItem = {
+                          'productName': item['productName'] ?? '',
+                          'packingName': item['packingName'] ?? '',
+                          'qtyPacks': item['qtyPacks'],
+                          'qtyLoose': item['qtyLoose'],
+                          'price': item['cost'],
+                          'discPercent': 0,
+                          'lineGross': item['value'],
+                        };
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            bottom: idx == items.length - 1 ? 0 : 8,
+                          ),
+                          child: LineItemCard(
+                            index: idx,
+                            item: displayItem,
+                            onEdit: () => _startEditingItem(idx, item),
+                            onDelete: () {
+                              final updatedItems = [...items];
+                              updatedItems.removeAt(idx);
+                              _itemsNotifier.value = updatedItems;
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    )
+                  else
+                    Container(
+                      width: double.infinity,
+                      decoration: AppTheme.cardDecor,
+                      child: HorizontalScrollWheel(
+                        child: DataTable(
+                          headingRowColor:
+                              WidgetStateProperty.all(AppTheme.clayBg),
+                          columnSpacing: 16,
+                          horizontalMargin: 12,
+                          dataRowMinHeight: 30,
+                          dataRowMaxHeight: 36,
+                          columns: const [
+                            DataColumn(label: Text('#')),
+                            DataColumn(label: Text('Product')),
+                            DataColumn(label: Text('Packing')),
+                            DataColumn(label: Text('Pack')),
+                            DataColumn(label: Text('Qty(P)')),
+                            DataColumn(label: Text('Qty(L)')),
+                            DataColumn(label: Text('Cost')),
+                            DataColumn(label: Text('Value')),
+                            DataColumn(label: Text('')),
+                          ],
+                          rows: items.asMap().entries.map((entry) {
+                            final idx = entry.key;
+                            final item = entry.value;
+                            return DataRow(
+                              color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
+                                return idx.isOdd
+                                    ? AppTheme.clayBg.withValues(alpha: 0.5)
+                                    : Colors.transparent;
+                              }),
+                              cells: [
+                                DataCell(Text('${idx + 1}')),
+                                DataCell(Text('${item['productName'] ?? ''}')),
+                                DataCell(Text('${item['packingName'] ?? ''}')),
+                                DataCell(Text('${item['pack'] ?? ''}')),
+                                DataCell(Text('${item['qtyPacks'] ?? ''}')),
+                                DataCell(Text('${item['qtyLoose'] ?? ''}')),
+                                DataCell(
+                                  Text(
+                                    ((item['cost'] as num?)?.toDouble() ?? 0)
+                                        .toStringAsFixed(2),
+                                  ),
                                 ),
-                              ),
-                              DataCell(
-                                Text(
-                                  ((item['value'] as num?)?.toDouble() ?? 0)
-                                      .toStringAsFixed(2),
+                                DataCell(
+                                  Text(
+                                    ((item['value'] as num?)?.toDouble() ?? 0)
+                                        .toStringAsFixed(2),
+                                  ),
                                 ),
-                              ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      tooltip: 'Edit',
-                                      icon: const Icon(
-                                        Icons.edit_outlined,
-                                        size: 18,
-                                        color: AppTheme.terra600,
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        tooltip: 'Edit',
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 18,
+                                          color: AppTheme.terra600,
+                                        ),
+                                        onPressed: () =>
+                                            _startEditingItem(idx, item),
                                       ),
-                                      onPressed: () =>
-                                          _startEditingItem(idx, item),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Delete',
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        size: 18,
-                                        color: AppTheme.dangerText,
+                                      IconButton(
+                                        tooltip: 'Delete',
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 18,
+                                          color: AppTheme.dangerText,
+                                        ),
+                                        onPressed: () {
+                                          final updatedItems = [...items];
+                                          updatedItems.removeAt(idx);
+                                          _itemsNotifier.value = updatedItems;
+                                        },
                                       ),
-                                      onPressed: () {
-                                        final updatedItems = [...items];
-                                        updatedItems.removeAt(idx);
-                                        _itemsNotifier.value = updatedItems;
-                                      },
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
+                              ],
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(height: 8),
                   Container(
                     color: AppTheme.clayBg,

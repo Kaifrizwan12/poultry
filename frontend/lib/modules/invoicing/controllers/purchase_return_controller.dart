@@ -13,7 +13,7 @@ class PurchaseReturnController extends ChangeNotifier {
 
   final PurchaseReturnService _service;
   List<PurchaseReturnModel> _items = [];
-  bool _isLoading = false;
+  bool _isLoading = true;
   String? _error;
   bool _isOfflineData = false;
 

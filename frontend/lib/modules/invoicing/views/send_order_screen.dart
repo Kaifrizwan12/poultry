@@ -1,4 +1,7 @@
+import 'package:farm_mgt_auth/core/app_utils.dart';
 import 'package:farm_mgt_auth/core/app_theme.dart';
+import 'package:farm_mgt_auth/core/detail_line_card.dart';
+import 'package:farm_mgt_auth/core/responsive_add_button.dart';
 import 'package:farm_mgt_auth/core/horizontal_scroll_wheel.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +12,8 @@ import '../controllers/send_order_controller.dart';
 import '../models/send_order_model.dart';
 import '../widgets/invoicing_action_bar.dart';
 import '../widgets/invoicing_form_dialog.dart';
+import 'package:farm_mgt_auth/core/offline_banner.dart';
+import 'package:farm_mgt_auth/core/record_card.dart';
 
 class SendOrderScreen extends StatefulWidget {
   const SendOrderScreen({super.key});
@@ -37,10 +42,9 @@ class _SendOrderScreenState extends State<SendOrderScreen> {
   }
 
   Future<void> _openForm({SendOrderModel? initial}) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => MultiProvider(
+    await showInvoicingForm(
+      context,
+      MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: context.read<SendOrderController>()),
           ChangeNotifierProvider.value(
@@ -71,6 +75,7 @@ class _SendOrderScreenState extends State<SendOrderScreen> {
     return Consumer<SendOrderController>(
       builder: (context, ctrl, _) {
         final items = _visibleItems(ctrl);
+        final isMobile = MediaQuery.of(context).size.width < 600;
         return Padding(
           padding: AppTheme.pagePadding(context),
           child: Column(
@@ -78,15 +83,18 @@ class _SendOrderScreenState extends State<SendOrderScreen> {
             children: [
               Row(
                 children: [
-                  Text(
-                    'Send Purchase Orders',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Text(
+                      'Send Purchase Orders',
+                      style: Theme.of(context).textTheme.titleLarge,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  const Spacer(),
-                  ElevatedButton.icon(
+                  const SizedBox(width: 8),
+                  ResponsiveAddButton(
                     onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New Send Order'),
+                    label: 'New Send Order',
                   ),
                 ],
               ),
@@ -108,7 +116,25 @@ class _SendOrderScreenState extends State<SendOrderScreen> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
-              if (ctrl.items.isEmpty)
+              if (ctrl.isLoading)
+                LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppTheme.terra400,
+                ),
+              if (ctrl.isOfflineData) const OfflineBanner(),
+              if (!ctrl.isLoading && items.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '${items.length} record${items.length == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textSecondary),
+                  ),
+                ),
+              if (ctrl.isLoading)
+                const Expanded(child: SizedBox.shrink())
+              else if (ctrl.items.isEmpty)
                 Expanded(
                   child: Center(
                     child: Column(
@@ -137,7 +163,7 @@ class _SendOrderScreenState extends State<SendOrderScreen> {
                     ),
                   ),
                 )
-              else if (items.isEmpty)
+              else if (!ctrl.isLoading && items.isEmpty)
                 const Expanded(
                   child: Center(
                     child: Text(
@@ -145,6 +171,24 @@ class _SendOrderScreenState extends State<SendOrderScreen> {
                       style: TextStyle(color: AppTheme.textSecondary),
                     ),
                   ),
+                )
+              else if (isMobile)
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 6),
+                    itemBuilder: (_, i) {
+                      final item = items[i];
+                      return RecordCard(
+                        id: item.sendOrderId,
+                        subtitle: item.vendorName,
+                        meta: AppUtils.formatDate(item.draftDate),
+                        amount: AppUtils.fmtAmt(item.totalOrderValue),
+                        onTap: () => _openForm(initial: item),
+                      );
+                    },
+                  )
                 )
               else
                 Expanded(
@@ -176,6 +220,9 @@ class _SendOrderScreenState extends State<SendOrderScreen> {
                             final item = entry.value;
                             return DataRow(
                               color: WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.pressed)) {
+                                  return AppTheme.terra50;
+                                }
                                 if (states.contains(WidgetState.hovered)) {
                                   return AppTheme.terra50;
                                 }
@@ -189,12 +236,12 @@ class _SendOrderScreenState extends State<SendOrderScreen> {
                                 DataCell(Text(item.sendOrderId)),
                                 DataCell(Text(item.vendorName)),
                                 DataCell(Text(item.draftNo)),
-                                DataCell(Text(item.draftDate)),
+                                DataCell(Text(AppUtils.formatDate(item.draftDate))),
                                 DataCell(
-                                  Text(item.draftAmount.toStringAsFixed(0)),
+                                  Text(AppUtils.fmtAmt(item.draftAmount)),
                                 ),
                                 DataCell(
-                                  Text(item.totalOrderValue.toStringAsFixed(0)),
+                                  Text(AppUtils.fmtAmt(item.totalOrderValue)),
                                 ),
                               ],
                             );
@@ -330,18 +377,16 @@ class _SendOrderFormDialogState extends State<_SendOrderFormDialog> {
       } else {
         await ctrl.updateItem(_currentId!, payload);
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved successfully')),
-        );
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.pop(context);
+      messenger.showSnackBar(const SnackBar(content: Text('Saved successfully')));
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -377,6 +422,7 @@ class _SendOrderFormDialogState extends State<_SendOrderFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
     final orders = context.watch<PurchaseOrderController>().items;
     final accounts = context.watch<AccountsController>().typedItems;
 
@@ -540,6 +586,37 @@ class _SendOrderFormDialogState extends State<_SendOrderFormDialog> {
                   ),
                 );
               }
+              if (isMobile) {
+                return Column(
+                  children: items.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final it = entry.value;
+                    final qtyPacks =
+                        ((it['qtyPacks'] as num?)?.toDouble() ?? 0);
+                    final qtyLoose =
+                        ((it['qtyLoose'] as num?)?.toDouble() ?? 0);
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: idx == items.length - 1 ? 0 : 8,
+                      ),
+                      child: DetailLineCard(
+                        index: idx,
+                        title: '${it['productName'] ?? ''}',
+                        subtitle: '${it['packingName'] ?? ''}',
+                        amount: AppUtils.fmtAmt2(
+                          ((it['lineGross'] as num?)?.toDouble() ?? 0),
+                        ),
+                        amountLabel:
+                            'Price ${AppUtils.fmtAmt2(((it['price'] as num?)?.toDouble() ?? 0))}',
+                        chips: [
+                          'Qty(P) ${qtyPacks.toStringAsFixed(0)}',
+                          'Qty(L) ${qtyLoose.toStringAsFixed(0)}',
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+              }
               return Container(
                 decoration: AppTheme.cardDecor,
                 child: HorizontalScrollWheel(
@@ -563,11 +640,14 @@ class _SendOrderFormDialogState extends State<_SendOrderFormDialog> {
                       final idx = entry.key;
                       final it = entry.value;
                       return DataRow(
-                        color: WidgetStateProperty.resolveWith(
-                          (states) => idx.isOdd
+                        color: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return AppTheme.terra50;
+                          }
+                          return idx.isOdd
                               ? AppTheme.clayBg.withValues(alpha: 0.5)
-                              : Colors.transparent,
-                        ),
+                              : Colors.transparent;
+                        }),
                         cells: [
                           DataCell(Text('${idx + 1}')),
                           DataCell(Text('${it['productName'] ?? ''}')),

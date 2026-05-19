@@ -92,9 +92,10 @@ class ChickenInvoiceController extends ChangeNotifier {
     OfflineSyncService.instance.triggerSync();
   }
 
-  Future<void> deleteItem(String id) async {
+  Future<void> deleteItem(String id, {String flockId = '', int birdsCount = 0}) async {
     await _service.delete(id);
     _items = _items.where((i) => i.id != id).toList();
+    if (flockId.isNotEmpty && birdsCount > 0) _unpatchFlockBirdCount(flockId, birdsCount);
     notifyListeners();
     OfflineSyncService.instance.triggerSync();
   }
@@ -131,6 +132,18 @@ class ChickenInvoiceController extends ChangeNotifier {
       };
     }).toList();
 
+    OfflineCacheService.saveList(cacheKey, patched);
+  }
+
+  void _unpatchFlockBirdCount(String flockId, int birdsCount) {
+    final cacheKey = OfflineCacheService.poultryListKey('flocks');
+    final list     = OfflineCacheService.readList(cacheKey);
+    if (list == null) return;
+    final patched = list.map((f) {
+      if (f['id'] != flockId) return f;
+      final current = (f['currentBirdsCount'] as num?)?.toInt() ?? 0;
+      return <String, dynamic>{...f, 'currentBirdsCount': current + birdsCount};
+    }).toList();
     OfflineCacheService.saveList(cacheKey, patched);
   }
 

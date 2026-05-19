@@ -184,6 +184,9 @@ class _FlockGrid extends StatelessWidget {
     }
 
     final items = flockCtrl.filteredItems;
+    if (flockCtrl.isLoading && items.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (items.isEmpty) {
       return Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [

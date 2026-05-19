@@ -238,10 +238,19 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
                       final inv = items[i];
                       return RecordCard(
                         id: inv.saleId,
-                        subtitle: inv.customerName,
+                        subtitle: inv.customerName.isNotEmpty
+                            ? inv.customerName
+                            : inv.salesmanName,
                         meta: AppUtils.formatDate(inv.entryDate),
                         amount: AppUtils.fmtAmt(inv.totalPayable),
-                        badge: _StatusBadge(status: inv.status),
+                        badge: Row(mainAxisSize: MainAxisSize.min, children: [
+                          if (inv.linkedChickenInvoiceId.isNotEmpty) ...[
+                            const Icon(Icons.egg_outlined,
+                                size: 12, color: AppTheme.terra600),
+                            const SizedBox(width: 3),
+                          ],
+                          _StatusBadge(status: inv.status),
+                        ]),
                         onTap: () => _openForm(initial: inv),
                       );
                     },
@@ -291,7 +300,17 @@ class _SalesInvoiceScreenState extends State<SalesInvoiceScreen> {
                               onSelectChanged: (_) => _openForm(initial: inv),
                               cells: [
                                 DataCell(Text('${idx + 1}')),
-                                DataCell(Text(inv.saleId)),
+                                DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
+                                  if (inv.linkedChickenInvoiceId.isNotEmpty) ...[
+                                    const Tooltip(
+                                      message: 'From chicken sale',
+                                      child: Icon(Icons.egg_outlined,
+                                          size: 13, color: AppTheme.terra600),
+                                    ),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Text(inv.saleId),
+                                ])),
                                 DataCell(Text(inv.customerName,
                                     overflow: TextOverflow.ellipsis)),
                                 DataCell(Text(inv.salesmanName,

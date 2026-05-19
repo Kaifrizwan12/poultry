@@ -37,19 +37,28 @@ module.exports = {
       const discount = asNumber(r.discount, `customerRecoveries[${i}].discount`, errors, { min: 0, defaultValue: 0 });
       const finalCredit = received + discount;
 
-      // Validate received + previous recoveries do not exceed saleValue
+      // Validate: reject if SI is already fully paid, and check cumulative does not exceed saleValue
       if (saleId && received > 0) {
+        // Check current remBalance from SI document
+        const siSnap = await invoicingCollection(uid, 'salesInvoices').doc(saleId).get();
+        if (siSnap.exists) {
+          const siRemBalance = siSnap.data().remBalance ?? siSnap.data().totalPayable ?? 0;
+          if (siRemBalance <= 0.01) {
+            errors.push(`customerRecoveries[${i}]: sales invoice ${saleId} is already fully settled (remBalance: ${siRemBalance})`);
+          }
+        }
+
         const prevSnap = await invoicingCollection(uid, 'recoveryInvoices').get();
         let alreadyReceived = 0;
         prevSnap.docs.forEach(doc => {
-          if (doc.data().recoveryId === (id ? asNullableString(r.recoveryId) : undefined)) return;
+          if (id && doc.id === id) return;
           const recoveries = doc.data().customerRecoveries || [];
           recoveries.forEach(rc => {
             if (rc.saleId === saleId) alreadyReceived += (rc.finalCredit || 0);
           });
         });
         if (alreadyReceived + finalCredit > saleValue + 0.01) {
-          errors.push(`customerRecoveries[${i}]: total recovery (${alreadyReceived + finalCredit}) exceeds invoice value (${saleValue})`);
+          errors.push(`customerRecoveries[${i}]: total recovery (${(alreadyReceived + finalCredit).toFixed(2)}) exceeds invoice value (${saleValue})`);
         }
       }
 

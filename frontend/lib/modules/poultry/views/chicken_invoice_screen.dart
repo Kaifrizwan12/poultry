@@ -92,6 +92,19 @@ class _InvoiceList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final customers = context.read<CustomersController>().items;
+    final salesmen  = context.read<SalesmenController>().items;
+
+    String customerName(String id) {
+      try { return customers.firstWhere((c) => c.id == id).text('name'); }
+      catch (_) { return ''; }
+    }
+    String salesmanName(String id) {
+      if (id.isEmpty) return '';
+      try { return salesmen.firstWhere((s) => s.id == id).text('name'); }
+      catch (_) { return ''; }
+    }
+
     return SingleChildScrollView(
       child: Column(
         children: items.map((item) {
@@ -105,6 +118,9 @@ class _InvoiceList extends StatelessWidget {
               : item.paymentStatus == 'partial'
                   ? AppTheme.terra50
                   : const Color(0xFFFEF2F2);
+
+          final custName = customerName(item.customerId);
+          final smName   = salesmanName(item.salesmanId);
 
           return Container(
             margin: const EdgeInsets.only(bottom: 10),
@@ -140,6 +156,23 @@ class _InvoiceList extends StatelessWidget {
                     onPressed: () => _delete(context, item),
                   ),
                 ]),
+                if (custName.isNotEmpty || smName.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    if (custName.isNotEmpty) ...[
+                      const Icon(Icons.person_outline, size: 13, color: AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(custName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    ],
+                    if (custName.isNotEmpty && smName.isNotEmpty)
+                      const Text('  ·  ', style: TextStyle(color: AppTheme.textTertiary)),
+                    if (smName.isNotEmpty) ...[
+                      const Icon(Icons.badge_outlined, size: 13, color: AppTheme.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(smName, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                    ],
+                  ]),
+                ],
                 const SizedBox(height: 10),
                 Wrap(spacing: 12, runSpacing: 8, children: [
                   _chip('Birds', '${item.birdsCount}'),
@@ -152,6 +185,8 @@ class _InvoiceList extends StatelessWidget {
                   _chip('Total', item.totalAmount.toStringAsFixed(2), AppTheme.terra600),
                   if (item.balanceDue > 0)
                     _chip('Balance', item.balanceDue.toStringAsFixed(2), AppTheme.dangerText),
+                  if (item.linkedSalesInvoiceId.isNotEmpty)
+                    _chip('SI', 'Linked', AppTheme.successText),
                 ]),
               ],
             ),
@@ -184,22 +219,47 @@ class _InvoiceList extends StatelessWidget {
   }
 
   Future<void> _delete(BuildContext context, ChickenInvoiceModel item) async {
+    final hasLinked = item.linkedSalesInvoiceId.isNotEmpty ||
+        item.linkedLedgerEntryIds.isNotEmpty;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Invoice'),
-        content: Text('Delete invoice ${item.invoiceNo}? This action cannot be undone.'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Delete invoice ${item.invoiceNo}?'),
+            if (hasLinked) ...[
+              const SizedBox(height: 8),
+              const Text(
+                'This will also delete the linked sales invoice and ledger entries, and restore the bird count.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+            ],
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true),
-              style: TextButton.styleFrom(foregroundColor: AppTheme.dangerText), child: const Text('Delete')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.dangerText),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
     if (ok == true) {
-      try { await ctrl.deleteItem(item.id); } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(backgroundColor: AppTheme.dangerText, content: Text(e.toString())));
+      try {
+        final flockCtrl = context.read<FlockController>();
+        await ctrl.deleteItem(item.id,
+            flockId: item.flockId, birdsCount: item.birdsCount);
+        if (context.mounted) flockCtrl.refreshFlock(item.flockId);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(backgroundColor: AppTheme.dangerText, content: Text(e.toString())));
+        }
       }
     }
   }

@@ -19,8 +19,9 @@ class SalesInvoiceModel extends BaseSettingsModel {
   String get salesmanName   => text('salesmanName');
   double get prevDebit      => number('prevDebit');
   String get status         => text('status');
-  String get description    => text('description');
-  String get remarks        => text('remarks');
+  String get description              => text('description');
+  String get remarks                  => text('remarks');
+  String get linkedChickenInvoiceId   => text('linkedChickenInvoiceId');
 
   double get gross          => number('gross');
   double get disc2Percent   => number('disc2Percent');

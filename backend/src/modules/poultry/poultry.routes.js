@@ -357,13 +357,20 @@ async function _chickenInvoiceToSalesInvoice(uid, chickenInvId, ci) {
     return null;
   }
 
-  // Fetch product details for the line item
-  const productSnap = await settingsCollection(uid, 'products').doc(chickenProductId).get();
+  // Fetch product, customer, and salesman details in parallel
+  const [productSnap, customerSnap, salesmanSnap] = await Promise.all([
+    settingsCollection(uid, 'products').doc(chickenProductId).get(),
+    ci.customerId  ? settingsCollection(uid, 'customers').doc(ci.customerId).get()  : Promise.resolve(null),
+    ci.salesmanId  ? settingsCollection(uid, 'salesmen').doc(ci.salesmanId).get()   : Promise.resolve(null),
+  ]);
+
   if (!productSnap.exists) {
     log('WARN', `_chickenInvoiceToSalesInvoice — product ${chickenProductId} not found`, { uid });
     return null;
   }
-  const product = productSnap.data();
+  const product      = productSnap.data();
+  const customerName = (customerSnap && customerSnap.exists) ? (customerSnap.data().name || '') : '';
+  const salesmanName = (salesmanSnap && salesmanSnap.exists) ? (salesmanSnap.data().name || '') : '';
 
   const saleId   = await nextBusinessId(uid, 'salesInvoices', 'SI');
   const ts       = nowIso();
@@ -374,9 +381,9 @@ async function _chickenInvoiceToSalesInvoice(uid, chickenInvId, ci) {
     saleId,
     entryDate:    ci.invoiceDate ? ci.invoiceDate.substring(0, 10) : ts.substring(0, 10),
     customerId:   ci.customerId,
-    customerName: ci.customerName || '',
+    customerName,
     salesmanId:   ci.salesmanId || '',
-    salesmanName: '',
+    salesmanName,
     townId: '', sectorId: '',
     prevDebit:    0,
     status:       'saved',
@@ -459,14 +466,14 @@ async function _chickenInvoiceToLedger(uid, chickenInvId, ci, linkedSiId) {
   });
   entryIds.push(arRef.id);
 
-  // 2. Credit Sales Revenue
+  // 2. Credit Sales Revenue (must equal the AR debit to keep the journal balanced)
   const srRef = accountsCollection(uid, 'ledgerEntries').doc();
   await srRef.set({
     entryNo:       baseNo + 'SR',
     entryDate:     ci.invoiceDate ? ci.invoiceDate.substring(0, 10) : ts.substring(0, 10),
     accountId:     salesRevAccountId,
     entryType:     'credit',
-    amount:        ci.netAmount || 0,
+    amount:        ci.totalAmount || 0,
     description:   `Chicken sale revenue — ${ci.invoiceNo}`,
     referenceType: 'other',
     referenceId:   linkedSiId || chickenInvId,
@@ -540,18 +547,47 @@ router.put('/chicken-invoices/:id', async (req, res) => {
   } catch (e) { log('ERROR', `PUT /poultry/chicken-invoices/${req.params.id} failed`, { uid, error: e.message }); return err(res, e.message || 'Failed to update', e.statusCode || 500); }
 });
 
-// Soft-cancel only — set status to cancelled, do not restore bird count
 router.delete('/chicken-invoices/:id', async (req, res) => {
   const uid = req.user.uid;
-  log('INFO', `DELETE /poultry/chicken-invoices/${req.params.id} (soft-cancel)`, { uid });
+  log('INFO', `DELETE /poultry/chicken-invoices/${req.params.id}`, { uid });
   try {
-    const docRef = poultryCollection(uid, 'chickenInvoices').doc(req.params.id);
-    const snap   = await docRef.get();
+    const db      = getDb();
+    const docRef  = poultryCollection(uid, 'chickenInvoices').doc(req.params.id);
+    const snap    = await docRef.get();
     if (!snap.exists) { log('WARN', `DELETE /poultry/chicken-invoices/${req.params.id} → 404`, { uid }); return err(res, 'Not found', 404); }
-    await docRef.update({ status: 'cancelled', cancelledAt: new Date().toISOString() });
-    log('INFO', `DELETE /poultry/chicken-invoices/${req.params.id} → cancelled`, { uid });
+    const ci = snap.data();
+
+    const { invoicingCollection } = require('../invoicing/invoicing.validators');
+    const { accountsCollection }  = require('../accounts/accounts.validators');
+
+    await db.runTransaction(async (tx) => {
+      // 1. Restore bird count and flock status
+      if (ci.flockId) {
+        const flockRef  = poultryCollection(uid, 'flocks').doc(ci.flockId);
+        const flockSnap = await tx.get(flockRef);
+        if (flockSnap.exists) {
+          const fd       = flockSnap.data();
+          const restored = (fd.currentBirdsCount || 0) + (ci.birdsCount || 0);
+          const flockUpd = { currentBirdsCount: restored, updatedAt: nowIso() };
+          if (fd.status === 'sold') { flockUpd.status = 'active'; flockUpd.closureDate = null; }
+          tx.update(flockRef, flockUpd);
+        }
+      }
+      // 2. Delete linked sales invoice
+      if (ci.linkedSalesInvoiceId) {
+        tx.delete(invoicingCollection(uid, 'salesInvoices').doc(ci.linkedSalesInvoiceId));
+      }
+      // 3. Delete linked ledger entries
+      for (const entryId of (ci.linkedLedgerEntryIds || [])) {
+        tx.delete(accountsCollection(uid, 'ledgerEntries').doc(entryId));
+      }
+      // 4. Hard-delete the chicken invoice
+      tx.delete(docRef);
+    });
+
+    log('INFO', `DELETE /poultry/chicken-invoices/${req.params.id} → deleted (birds restored, SI+ledger cascade)`, { uid });
     return ok(res, { id: req.params.id });
-  } catch (e) { log('ERROR', `DELETE /poultry/chicken-invoices/${req.params.id} failed`, { uid, error: e.message }); return err(res, e.message || 'Failed to cancel', e.statusCode || 500); }
+  } catch (e) { log('ERROR', `DELETE /poultry/chicken-invoices/${req.params.id} failed`, { uid, error: e.message }); return err(res, e.message || 'Failed to delete', e.statusCode || 500); }
 });
 
 // ─── Reports ──────────────────────────────────────────────────────────────────

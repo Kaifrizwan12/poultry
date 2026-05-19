@@ -46,12 +46,18 @@ module.exports = {
       }
     }
 
+    const entryDate   = asRequiredString(body.entryDate,   'entryDate',   errors);
+    const promiseDate = asRequiredString(body.promiseDate, 'promiseDate', errors);
+    if (entryDate && promiseDate && promiseDate < entryDate) {
+      errors.push('promiseDate must be on or after entryDate');
+    }
+
     return {
       data: {
         promiseId,
         promiseType,
-        entryDate:      asRequiredString(body.entryDate, 'entryDate', errors),
-        promiseDate:    asRequiredString(body.promiseDate, 'promiseDate', errors),
+        entryDate,
+        promiseDate,
         customerId,
         customerName:   asNullableString(body.customerName),
         vendorId,

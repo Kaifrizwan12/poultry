@@ -1,6 +1,5 @@
 import 'package:farm_mgt_auth/core/app_theme.dart';
 import 'package:farm_mgt_auth/modules/settings/controllers/accounts_controller.dart';
-import 'package:farm_mgt_auth/modules/settings/models/account.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -25,13 +24,12 @@ class VoucherLineRow extends StatefulWidget {
 }
 
 class _VoucherLineRowState extends State<VoucherLineRow> {
-  final _accountCodeCtrl = TextEditingController();
-  final _accountNameCtrl = TextEditingController();
-  final _debitCtrl = TextEditingController(text: '0');
-  final _creditCtrl = TextEditingController(text: '0');
-  final _narrationCtrl = TextEditingController();
+  final _debitCtrl      = TextEditingController(text: '0');
+  final _creditCtrl     = TextEditingController(text: '0');
+  final _narrationCtrl  = TextEditingController();
 
-  String _accountId = '';
+  String _accountId   = '';
+  String _accountCode = '';
   String _accountName = '';
 
   @override
@@ -41,12 +39,11 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
   }
 
   void _preloadFrom(Map<String, dynamic> line) {
-    _accountId = '${line['accountId'] ?? ''}';
+    _accountId   = '${line['accountId']   ?? ''}';
+    _accountCode = '${line['accountCode'] ?? ''}';
     _accountName = '${line['accountName'] ?? ''}';
-    _accountCodeCtrl.text = '${line['accountCode'] ?? ''}';
-    _accountNameCtrl.text = _accountName;
     _debitCtrl.text =
-        ((line['debit'] as num?)?.toDouble() ?? 0).toStringAsFixed(2);
+        ((line['debit']  as num?)?.toDouble() ?? 0).toStringAsFixed(2);
     _creditCtrl.text =
         ((line['credit'] as num?)?.toDouble() ?? 0).toStringAsFixed(2);
     _narrationCtrl.text = '${line['narration'] ?? ''}';
@@ -54,50 +51,20 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
 
   @override
   void dispose() {
-    _accountCodeCtrl.dispose();
-    _accountNameCtrl.dispose();
     _debitCtrl.dispose();
     _creditCtrl.dispose();
     _narrationCtrl.dispose();
     super.dispose();
   }
 
-  void _lookupAccount() {
-    final code = _accountCodeCtrl.text.trim();
-    if (code.isEmpty) return;
-    final accounts = context.read<AccountsController>().typedItems;
-    Account? account;
-    try {
-      account = accounts.firstWhere((a) => a.text('accountCode') == code);
-    } catch (_) {
-      account = null;
-    }
-    if (account != null) {
-      setState(() {
-        _accountId = account!.id;
-        _accountName = account.text('accountName');
-      });
-      _accountNameCtrl.text = _accountName;
-    } else {
-      setState(() {
-        _accountId = '';
-        _accountName = 'Not found';
-      });
-      _accountNameCtrl.text = _accountName;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Account "$code" not found')),
-      );
-    }
-  }
-
   void _addLine() {
     if (_accountId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid account code')),
+        const SnackBar(content: Text('Please select an account')),
       );
       return;
     }
-    final debit = double.tryParse(_debitCtrl.text) ?? 0;
+    final debit  = double.tryParse(_debitCtrl.text)  ?? 0;
     final credit = double.tryParse(_creditCtrl.text) ?? 0;
     if (debit <= 0 && credit <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,21 +75,19 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
       return;
     }
     widget.onAdd({
-      'accountId': _accountId,
-      'accountCode': _accountCodeCtrl.text.trim(),
+      'accountId':   _accountId,
+      'accountCode': _accountCode,
       'accountName': _accountName,
-      'debit': debit,
-      'credit': credit,
-      'narration': _narrationCtrl.text.trim(),
+      'debit':       debit,
+      'credit':      credit,
+      'narration':   _narrationCtrl.text.trim(),
     });
-    // Clear
     setState(() {
-      _accountId = '';
+      _accountId   = '';
+      _accountCode = '';
       _accountName = '';
     });
-    _accountCodeCtrl.clear();
-    _accountNameCtrl.clear();
-    _debitCtrl.text = '0';
+    _debitCtrl.text  = '0';
     _creditCtrl.text = '0';
     _narrationCtrl.clear();
   }
@@ -131,7 +96,8 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
 
   @override
   Widget build(BuildContext context) {
-    final showDebit = widget.voucherType != 'credit';
+    final accounts  = context.watch<AccountsController>().typedItems;
+    final showDebit  = widget.voucherType != 'credit';
     final showCredit = widget.voucherType != 'debit';
 
     return Container(
@@ -147,22 +113,31 @@ class _VoucherLineRowState extends State<VoucherLineRow> {
         crossAxisAlignment: WrapCrossAlignment.end,
         children: [
           SizedBox(
-            width: 130,
-            child: TextFormField(
-              controller: _accountCodeCtrl,
-              decoration: _dec('Account No'),
-              onFieldSubmitted: (_) => _lookupAccount(),
-              onEditingComplete: _lookupAccount,
-            ),
-          ),
-          SizedBox(
-            width: 200,
-            child: AbsorbPointer(
-              child: TextFormField(
-                decoration: _dec('Account Name'),
-                controller: _accountNameCtrl,
-                style: const TextStyle(color: AppTheme.textSecondary),
-              ),
+            width: 280,
+            child: DropdownButtonFormField<String>(
+              value: _accountId.isEmpty ? null : _accountId,
+              decoration: _dec('Account'),
+              isExpanded: true,
+              items: accounts.map((a) {
+                final code = a.text('accountCode');
+                final name = a.text('accountName');
+                return DropdownMenuItem<String>(
+                  value: a.id,
+                  child: Text(
+                    code.isNotEmpty ? '$name ($code)' : name,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val == null) return;
+                final a = accounts.firstWhere((x) => x.id == val);
+                setState(() {
+                  _accountId   = val;
+                  _accountCode = a.text('accountCode');
+                  _accountName = a.text('accountName');
+                });
+              },
             ),
           ),
           if (showDebit)

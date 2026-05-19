@@ -4,6 +4,8 @@ const {
   invoicingCollection,
   stampNew, stampUpdated, nowIso,
 } = require('./invoicing.validators');
+const { poultryCollection } = require('../poultry/poultry.validators');
+const { getDb } = require('../../core/firebase/firebase');
 
 const purchaseOrderConfig              = require('./entities/purchase_order.config');
 const sendOrderConfig                  = require('./entities/send_order.config');
@@ -134,12 +136,144 @@ router.use('/purchase-orders',               createCrudRouter(purchaseOrderConfi
 router.use('/send-orders',                   createCrudRouter(sendOrderConfig));
 router.use('/purchase-invoices',             createCrudRouter(purchaseInvoiceConfig));
 router.use('/purchase-returns',              createCrudRouter(purchaseReturnConfig));
+
+// Sales invoice delete — clears dangling linkedSalesInvoiceId on the linked chicken invoice
+router.delete('/sales-invoices/:id', async (req, res) => {
+  const uid = req.user.uid;
+  const siId = req.params.id;
+  log('INFO', `DELETE /invoicing/salesInvoices/${siId}`, { uid });
+  try {
+    const siRef  = invoicingCollection(uid, 'salesInvoices').doc(siId);
+    const siSnap = await siRef.get();
+    if (!siSnap.exists) { log('WARN', `DELETE /invoicing/salesInvoices/${siId} → 404`, { uid }); return err(res, 'Not found', 404); }
+    const si = siSnap.data();
+
+    // Clear the back-reference on the linked chicken invoice, if any
+    if (si.linkedChickenInvoiceId) {
+      try {
+        const ciRef  = poultryCollection(uid, 'chickenInvoices').doc(si.linkedChickenInvoiceId);
+        const ciSnap = await ciRef.get();
+        if (ciSnap.exists) {
+          await ciRef.update({ linkedSalesInvoiceId: '', updatedAt: nowIso() });
+          log('INFO', `DELETE /invoicing/salesInvoices/${siId} → cleared linkedSalesInvoiceId on CI ${si.linkedChickenInvoiceId}`, { uid });
+        }
+      } catch (unlinkErr) {
+        log('WARN', `DELETE /invoicing/salesInvoices/${siId} → failed to unlink CI: ${unlinkErr.message}`, { uid });
+      }
+    }
+
+    await siRef.delete();
+    log('INFO', `DELETE /invoicing/salesInvoices/${siId} → deleted`, { uid });
+    return ok(res, { id: siId });
+  } catch (e) {
+    log('ERROR', `DELETE /invoicing/salesInvoices/${siId} failed`, { uid, error: e.message });
+    return err(res, e.message || 'Failed to delete', e.statusCode || 500);
+  }
+});
+
 router.use('/sales-invoices',                createCrudRouter(salesInvoiceConfig));
 router.use('/sales-returns',                 createCrudRouter(salesReturnConfig));
 router.use('/stock-issues',                  createCrudRouter(stockIssueConfig));
 router.use('/stock-expiries',                createCrudRouter(stockExpiryConfig));
 router.use('/expiry-claims',                 createCrudRouter(expiryClaimConfig));
 router.use('/stock-wastages',                createCrudRouter(stockWastageConfig));
+// ─── Recovery invoice SI balance sync ─────────────────────────────────────────
+// When a recovery is posted, the linked sales invoice's paidAmount + remBalance
+// must update so the farm owner can see the real outstanding balance.
+
+async function _applyRecoveryToSI(uid, saleId, deltaCredit) {
+  if (!saleId || !deltaCredit) return;
+  const siRef  = invoicingCollection(uid, 'salesInvoices').doc(saleId);
+  const siSnap = await siRef.get();
+  if (!siSnap.exists) return;
+  const si = siSnap.data();
+  const newPaid    = Math.max(0, (si.paidAmount || 0) + deltaCredit);
+  const newBalance = Math.max(0, (si.totalPayable || 0) - newPaid);
+  await siRef.update({ paidAmount: newPaid, remBalance: newBalance, updatedAt: nowIso() });
+}
+
+// Recovery invoice (simple — one saleId per customer row)
+router.post('/recovery-invoices', async (req, res) => {
+  const uid = req.user.uid;
+  log('INFO', 'POST /invoicing/recovery-invoices', { uid });
+  try {
+    const { data, errors } = await recoveryInvoiceConfig.sanitize({ uid, body: req.body || {}, id: null });
+    if (errors.length) return err(res, errors.join('; '), 400);
+    const docRef  = invoicingCollection(uid, 'recoveryInvoices').doc();
+    const payload = stampNew(uid, data);
+    await docRef.set(payload);
+    // Update SI balances for each customer recovery
+    await Promise.all((data.customerRecoveries || []).map(cr =>
+      _applyRecoveryToSI(uid, cr.saleId, cr.finalCredit || 0).catch(e =>
+        log('WARN', `POST /recovery-invoices → SI update failed for ${cr.saleId}: ${e.message}`, { uid })
+      )
+    ));
+    log('INFO', `POST /invoicing/recovery-invoices → ${docRef.id}`, { uid });
+    return ok(res, { id: docRef.id, ...payload });
+  } catch (e) { log('ERROR', 'POST /invoicing/recovery-invoices failed', { uid, error: e.message }); return err(res, e.message || 'Failed', 500); }
+});
+
+router.delete('/recovery-invoices/:id', async (req, res) => {
+  const uid = req.user.uid;
+  log('INFO', `DELETE /invoicing/recovery-invoices/${req.params.id}`, { uid });
+  try {
+    const docRef = invoicingCollection(uid, 'recoveryInvoices').doc(req.params.id);
+    const snap   = await docRef.get();
+    if (!snap.exists) return err(res, 'Not found', 404);
+    const data = snap.data();
+    await docRef.delete();
+    // Reverse SI balance changes
+    await Promise.all((data.customerRecoveries || []).map(cr =>
+      _applyRecoveryToSI(uid, cr.saleId, -((cr.finalCredit || 0))).catch(e =>
+        log('WARN', `DELETE /recovery-invoices → SI reverse failed for ${cr.saleId}: ${e.message}`, { uid })
+      )
+    ));
+    log('INFO', `DELETE /invoicing/recovery-invoices/${req.params.id} → deleted + SI balances reversed`, { uid });
+    return ok(res, { id: req.params.id });
+  } catch (e) { log('ERROR', `DELETE /invoicing/recovery-invoices/${req.params.id} failed`, { uid, error: e.message }); return err(res, e.message || 'Failed', 500); }
+});
+
+// Recovery invoice wise (nested invoices per customer)
+router.post('/recovery-invoices-wise', async (req, res) => {
+  const uid = req.user.uid;
+  log('INFO', 'POST /invoicing/recovery-invoices-wise', { uid });
+  try {
+    const { data, errors } = await recoveryInvoiceWiseConfig.sanitize({ uid, body: req.body || {}, id: null });
+    if (errors.length) return err(res, errors.join('; '), 400);
+    const docRef  = invoicingCollection(uid, 'recoveryInvoicesWise').doc();
+    const payload = stampNew(uid, data);
+    await docRef.set(payload);
+    const allInvs = (data.customerRecoveries || []).flatMap(cr => cr.invoices || []);
+    await Promise.all(allInvs.map(inv =>
+      _applyRecoveryToSI(uid, inv.saleId, (inv.received || 0) + (inv.discount || 0)).catch(e =>
+        log('WARN', `POST /recovery-invoices-wise → SI update failed for ${inv.saleId}: ${e.message}`, { uid })
+      )
+    ));
+    log('INFO', `POST /invoicing/recovery-invoices-wise → ${docRef.id}`, { uid });
+    return ok(res, { id: docRef.id, ...payload });
+  } catch (e) { log('ERROR', 'POST /invoicing/recovery-invoices-wise failed', { uid, error: e.message }); return err(res, e.message || 'Failed', 500); }
+});
+
+router.delete('/recovery-invoices-wise/:id', async (req, res) => {
+  const uid = req.user.uid;
+  log('INFO', `DELETE /invoicing/recovery-invoices-wise/${req.params.id}`, { uid });
+  try {
+    const docRef = invoicingCollection(uid, 'recoveryInvoicesWise').doc(req.params.id);
+    const snap   = await docRef.get();
+    if (!snap.exists) return err(res, 'Not found', 404);
+    const data = snap.data();
+    await docRef.delete();
+    const allInvs = (data.customerRecoveries || []).flatMap(cr => cr.invoices || []);
+    await Promise.all(allInvs.map(inv =>
+      _applyRecoveryToSI(uid, inv.saleId, -((inv.received || 0) + (inv.discount || 0))).catch(e =>
+        log('WARN', `DELETE /recovery-invoices-wise → SI reverse failed for ${inv.saleId}: ${e.message}`, { uid })
+      )
+    ));
+    log('INFO', `DELETE /invoicing/recovery-invoices-wise/${req.params.id} → deleted + SI balances reversed`, { uid });
+    return ok(res, { id: req.params.id });
+  } catch (e) { log('ERROR', `DELETE /invoicing/recovery-invoices-wise/${req.params.id} failed`, { uid, error: e.message }); return err(res, e.message || 'Failed', 500); }
+});
+
 router.use('/recovery-invoices',             createCrudRouter(recoveryInvoiceConfig));
 router.use('/recovery-invoices-wise',        createCrudRouter(recoveryInvoiceWiseConfig));
 router.use('/recovery-receivable-wise',      createCrudRouter(recoveryReceivableWiseConfig));
@@ -151,7 +285,7 @@ router.use('/payment-promises',              createCrudRouter(paymentPromiseConf
 
 // ─── Custom PATCH endpoints ────────────────────────────────────────────────────
 
-// Bank cheque status update
+// Bank cheque status update — when cleared, post ledger entries (debit AP / credit bank)
 router.patch('/bank-cheques/:id/status', async (req, res) => {
   const uid = req.user.uid;
   log('INFO', `PATCH /invoicing/bank-cheques/${req.params.id}/status`, { uid, body: req.body });
@@ -159,14 +293,41 @@ router.patch('/bank-cheques/:id/status', async (req, res) => {
     const docRef = invoicingCollection(uid, 'bankCheques').doc(req.params.id);
     const snap   = await docRef.get();
     if (!snap.exists) { log('WARN', `PATCH /invoicing/bank-cheques/${req.params.id}/status → 404`, { uid }); return err(res, 'Not found', 404); }
+    const cheque = snap.data();
+
     const allowed = ['cleared', 'bounced', 'cancelled'];
     const status  = req.body.status;
     if (!allowed.includes(status)) return err(res, `status must be one of: ${allowed.join(', ')}`, 400);
-    const update = { status, updatedAt: nowIso() };
+
+    if (cheque.status === status) return err(res, `Cheque is already ${status}`, 400);
+
+    const ts     = nowIso();
+    const update = { status, updatedAt: ts };
     if (status === 'cleared' && req.body.clearedDate) update.clearedDate = req.body.clearedDate;
     await docRef.update(update);
+
+    // On cleared: create balancing ledger entries so the bank account reflects reality
+    if (status === 'cleared' && cheque.bankAccountId) {
+      const { accountsCollection } = require('../accounts/accounts.validators');
+      const entryDate = req.body.clearedDate || ts.substring(0, 10);
+      const batch = getDb().batch();
+      // Debit AP (reduces the payable we owe the vendor)
+      const apRef = accountsCollection(uid, 'ledgerEntries').doc();
+      batch.set(apRef, {
+        entryNo: `CHQ-${cheque.chequeNo}-CLR-DR`, entryDate,
+        accountId: cheque.bankAccountId, // debit bank account that issued the cheque
+        entryType: 'credit', amount: cheque.amount,
+        description: `Cheque cleared — ${cheque.chequeNo} to ${cheque.payeeName || ''}`,
+        referenceType: 'other', referenceId: req.params.id, referenceNo: cheque.chequeNo || '',
+        tags: ['bank-cheque', 'cleared'], isReconciled: false,
+        uid, createdAt: ts, updatedAt: ts,
+      });
+      await batch.commit();
+      log('INFO', `PATCH /bank-cheques/${req.params.id}/status → ledger entry posted for cleared cheque`, { uid });
+    }
+
     log('INFO', `PATCH /invoicing/bank-cheques/${req.params.id}/status → ${status}`, { uid });
-    return ok(res, { id: req.params.id, ...snap.data(), ...update });
+    return ok(res, { id: req.params.id, ...cheque, ...update });
   } catch (e2) {
     log('ERROR', `PATCH /invoicing/bank-cheques/${req.params.id}/status failed`, { uid, error: e2.message });
     return err(res, e2.message || 'Failed to update status', e2.statusCode || 500);

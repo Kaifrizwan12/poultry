@@ -45,7 +45,7 @@ module.exports = {
 
       lines.push({
         accountId,
-        accountNo:   asNullableString(r.accountNo),
+        accountCode: asNullableString(r.accountCode) || asNullableString(r.accountNo), // accountNo kept for backward compat
         accountName: asNullableString(r.accountName),
         debit,
         credit,

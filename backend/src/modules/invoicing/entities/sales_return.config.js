@@ -69,17 +69,29 @@ module.exports = {
       if (returnType === 'with_invoice') {
         const currentReturnQtyPacks = asNumber(r.currentReturnQtyPacks, `items[${i}].currentReturnQtyPacks`, errors, { min: 0, defaultValue: 0 });
         const currentReturnQtyLoose = asNumber(r.currentReturnQtyLoose, `items[${i}].currentReturnQtyLoose`, errors, { min: 0, defaultValue: 0 });
-        const saleQtyPacks   = asNumber(r.saleQtyPacks, `items[${i}].saleQtyPacks`, errors, { min: 0, defaultValue: 0 });
-        const saleQtyLoose   = asNumber(r.saleQtyLoose, `items[${i}].saleQtyLoose`, errors, { min: 0, defaultValue: 0 });
 
-        // Server-side: compute cumulative previous returns for this saleId + productId
+        // Server-verify saleQty from the actual sales invoice — never trust client value
+        let saleQtyPacks = 0;
+        let saleQtyLoose = 0;
+        if (saleId && productId && !errors.length) {
+          const siSnap = await invoicingCollection(uid, 'salesInvoices').doc(saleId).get();
+          if (siSnap.exists) {
+            const siItem = (siSnap.data().items || []).find(it => it.productId === productId);
+            if (siItem) {
+              saleQtyPacks = siItem.qtyPacks || 0;
+              saleQtyLoose = siItem.qtyLoose || 0;
+            }
+          }
+        }
+
+        // Compute cumulative previous returns for this saleId + productId
         let prevReturnedQtyPacks = 0;
         let prevReturnedQtyLoose = 0;
         if (saleId && productId && !errors.length) {
           const prevSnap = await invoicingCollection(uid, 'salesReturns')
             .where('saleId', '==', saleId).get();
           prevSnap.docs.forEach(doc => {
-            if (doc.id === id) return; // skip current doc on update
+            if (doc.id === id) return;
             const docItems = doc.data().items || [];
             const match = docItems.find(it => it.productId === productId);
             if (match) {
@@ -101,10 +113,10 @@ module.exports = {
         const calc = calcLineValues({ qtyPacks: currentReturnQtyPacks, qtyLoose: currentReturnQtyLoose, pack, price, discPercent, salesTaxPercent });
         lineItem = {
           ...lineItem,
-          saleQtyPacks,
-          saleQtyLoose,
+          saleQtyPacks,   // server-verified from actual SI
+          saleQtyLoose,   // server-verified from actual SI
           saleBns:               asNumber(r.saleBns, `items[${i}].saleBns`, errors, { min: 0, defaultValue: 0 }),
-          prevReturnedQtyPacks, // server-computed, not trusted from client
+          prevReturnedQtyPacks,
           prevReturnedQtyLoose,
           currentReturnQtyPacks,
           currentReturnQtyLoose,
